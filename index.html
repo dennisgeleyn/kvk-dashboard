@@ -446,6 +446,10 @@
       <label>API Key</label>
       <input type="password" id="cfgApiKey" placeholder="••••••••">
     </div>
+    <div class="config-field">
+      <label>Proxy URL (voor GitHub Pages)</label>
+      <input type="text" id="cfgProxyUrl" placeholder="https://stamhoofd-proxy.yourname.workers.dev">
+    </div>
   </div>
   <div class="config-actions">
     <button class="btn btn-primary" onclick="saveConfig()">Opslaan & Vernieuwen</button>
@@ -531,6 +535,10 @@ const DEFAULTS = {
   webshopId: '07e841fb-25a0-478d-a1a4-4d09df824938',
   apiKey: 'I7IIIPHHZSYK6EMYAYSHFM91Y/T5WEFUCBJHK93NW40831OECO2VK0YUBBCXCH0IP+RRJWCQIFOUEV31U+YLV+HCHL+KSLDJEGW1E9XFSE1GF+RN7D0J+TX16UMB+PUA4RG1AJEUI8GHT2DTZT8ZI/LCPM5LGSG2XLVAM3LP1ZK4U2KSVVAQVLETTT3OPVCROHPO5UEAII/UAVJT1N2PORD4KH/LYPUM0EBI1CGYU+7QTP2LR2FP1P7P1HQ9OO88',
   capacity: 239,
+  // After deploying the Cloudflare Worker, paste its URL here
+  // e.g. 'https://stamhoofd-proxy.yourname.workers.dev'
+  // Leave empty to call the Stamhoofd API directly (works locally, not on GitHub Pages)
+  proxyUrl: '',
 };
 
 // Merge saved settings from localStorage over defaults
@@ -539,6 +547,14 @@ const CONFIG = { ...DEFAULTS, ...saved };
 
 function apiBase() {
   return `https://${CONFIG.orgId}.api.stamhoofd.app/v247`;
+}
+
+// Wraps a URL through the CORS proxy if one is configured
+function proxied(url) {
+  if (CONFIG.proxyUrl) {
+    return `${CONFIG.proxyUrl}/proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
 }
 
 function headers() {
@@ -578,6 +594,7 @@ function toggleConfig() {
     document.getElementById('cfgOrgId').value = CONFIG.orgId;
     document.getElementById('cfgWebshopId').value = CONFIG.webshopId;
     document.getElementById('cfgApiKey').value = CONFIG.apiKey;
+    document.getElementById('cfgProxyUrl').value = CONFIG.proxyUrl || '';
   }
 }
 
@@ -585,11 +602,13 @@ function saveConfig() {
   CONFIG.orgId = document.getElementById('cfgOrgId').value.trim();
   CONFIG.webshopId = document.getElementById('cfgWebshopId').value.trim();
   CONFIG.apiKey = document.getElementById('cfgApiKey').value.trim();
+  CONFIG.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
   // Persist to localStorage so settings survive page reloads
   localStorage.setItem('theatre_dashboard_config', JSON.stringify({
     orgId: CONFIG.orgId,
     webshopId: CONFIG.webshopId,
     apiKey: CONFIG.apiKey,
+    proxyUrl: CONFIG.proxyUrl,
   }));
   toggleConfig();
   loadData();
@@ -605,7 +624,7 @@ async function fetchAllOrders() {
   let lastId = null;
 
   while (true) {
-    const url = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
+    const url = new URL(proxied(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`));
     url.searchParams.set('updatedSince', updatedSince);
     if (lastId) url.searchParams.set('lastId', lastId);
 
@@ -656,7 +675,7 @@ async function fetchAllOrders() {
 }
 
 async function fetchWebshop() {
-  const res = await fetch(`${apiBase()}/webshop/${CONFIG.webshopId}`, { headers: headers() });
+  const res = await fetch(proxied(`${apiBase()}/webshop/${CONFIG.webshopId}`), { headers: headers() });
   if (!res.ok) throw new Error(`Webshop API ${res.status}: ${res.statusText}`);
   return res.json();
 }
@@ -984,3 +1003,4 @@ setInterval(loadData, 5 * 60 * 1000);
 </script>
 </body>
 </html>
+
