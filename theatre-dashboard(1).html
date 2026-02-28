@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticketing Dashboard — Theater</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface2: #f0ede6;
+    --border: #e0dbd0;
+    --text: #1a1814;
+    --muted: #9a9488;
+    --gold: #8b6914;
+    --gold-dim: #f0e8d0;
+    --red: #b83232;
+    --green: #2e7d52;
+    --serif: 'Playfair Display', Georgia, serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--mono);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+    font-size: 13px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: var(--serif);
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .logo em { color: var(--gold); font-style: italic; }
+
+  .header-right { text-align: right; }
+
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 0.3rem;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .header-date { color: var(--muted); font-size: 0.7rem; }
+
+  /* STATUS BAR */
+  .status-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    margin-bottom: 2rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-bar.loading { color: var(--gold); }
+  .status-bar.error { color: var(--red); border-color: var(--red); }
+  .status-bar.success { color: var(--green); border-color: #1e3d2a; }
+
+  /* CONFIG */
+  .config-panel {
+    background: var(--surface);
+    border: 1px solid var(--gold-dim);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    display: none;
+  }
+
+  .config-panel.visible { display: block; }
+
+  .config-title {
+    font-family: var(--serif);
+    font-size: 0.9rem;
+    color: var(--gold);
+    margin-bottom: 1rem;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .config-field label {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .config-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .config-field input:focus { border-color: var(--gold); }
+
+  .config-actions { display: flex; gap: 0.5rem; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--bg);
+  }
+
+  .btn:hover { opacity: 0.8; }
+
+  /* TOP TOOLBAR */
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .section-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .toolbar-actions { display: flex; gap: 0.5rem; }
+
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 1px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+
+  .kpi:hover { background: var(--surface2); }
+
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .kpi.loaded::before { transform: scaleX(1); }
+
+  .kpi-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .kpi-value {
+    font-family: var(--serif);
+    font-size: 2.4rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .kpi-sub {
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .kpi-sub .up { color: var(--green); }
+  .kpi-sub .down { color: var(--red); }
+
+  /* MAIN LAYOUT */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 1px;
+  }
+
+  .card {
+    background: var(--surface);
+    padding: 1.5rem;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-title {
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text);
+  }
+
+  .card-meta { font-size: 0.65rem; color: var(--muted); }
+
+  /* SHOW CARDS */
+  .show-list { display: flex; flex-direction: column; gap: 1rem; }
+
+  .show-item {
+    border: 1px solid var(--border);
+    padding: 1rem;
+    transition: border-color 0.2s;
+    cursor: default;
+  }
+
+  .show-item:hover { border-color: var(--gold); }
+
+  .show-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+
+  .show-name {
+    font-family: var(--serif);
+    font-size: 0.95rem;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .show-date { font-size: 0.65rem; color: var(--muted); }
+
+  .show-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .show-stat-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .show-stat-val { font-size: 1rem; font-family: var(--serif); color: var(--text); }
+
+  .seat-track {
+    height: 3px;
+    background: var(--gold-dim);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .seat-fill {
+    height: 100%;
+    background: var(--gold);
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .seat-fill.almost { background: var(--red); }
+  .seat-fill.good { background: var(--green); }
+
+  .seat-pct {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* REVENUE CHART */
+  svg.rev-chart { width: 100%; height: 160px; }
+
+  /* ORDERS TABLE */
+  .table-wrap {
+    background: var(--surface);
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody td {
+    padding: 0.65rem 0;
+    font-size: 0.75rem;
+    vertical-align: middle;
+  }
+
+  .status-pill {
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1px;
+  }
+
+  .pill-succeeded { background: #d4edde; color: var(--green); }
+  .pill-created { background: var(--gold-dim); color: var(--gold); }
+  .pill-failed { background: #fad7d7; color: var(--red); }
+  .pill-pending { background: var(--surface2); color: var(--muted); }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 2px;
+    height: 1em;
+    display: inline-block;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+  }
+
+  @media (max-width: 800px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .main-grid { grid-template-columns: 1fr; }
+    .config-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">theater <em>dashboard</em></div>
+  <div class="header-right">
+    <div class="live-badge"><span class="live-dot"></span> Live data</div>
+    <div class="header-date" id="liveDate"></div>
+  </div>
+</header>
+
+<div class="status-bar loading" id="statusBar">⏳ Verbinding maken met Stamhoofd API...</div>
+
+<!-- CONFIG (hidden by default, shown on settings click) -->
+<div class="config-panel" id="configPanel">
+  <div class="config-title">API Instellingen</div>
+  <div class="config-grid">
+    <div class="config-field">
+      <label>Organisation ID</label>
+      <input type="text" id="cfgOrgId" placeholder="uuid...">
+    </div>
+    <div class="config-field">
+      <label>Webshop ID</label>
+      <input type="text" id="cfgWebshopId" placeholder="uuid...">
+    </div>
+    <div class="config-field">
+      <label>API Key</label>
+      <input type="password" id="cfgApiKey" placeholder="••••••••">
+    </div>
+  </div>
+  <div class="config-actions">
+    <button class="btn btn-primary" onclick="saveConfig()">Opslaan & Vernieuwen</button>
+    <button class="btn" onclick="toggleConfig()">Annuleren</button>
+  </div>
+</div>
+
+<div id="debugPanel" style="display:none;background:var(--surface2);border:1px solid #c9a84c;padding:1rem;margin-bottom:1rem;font-size:0.65rem;color:var(--gold);font-family:DM Mono,monospace;white-space:pre-wrap;max-height:300px;overflow:auto"></div>
+
+<div class="toolbar">
+  <div class="section-label">Overzicht ticketverkoop</div>
+  <div class="toolbar-actions">
+    <button class="btn" onclick="loadData()">↻ Vernieuwen</button>
+    <button class="btn" onclick="toggleDebug()">🔍 Debug</button>
+    <button class="btn" onclick="toggleConfig()">⚙ Instellingen</button>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" id="kpiGrid">
+  <div class="kpi"><div class="kpi-label">Totale omzet</div><div class="kpi-value"><span class="skeleton" style="width:100px">&nbsp;</span></div></div>
+  <div class="kpi"><div class="kpi-label">Tickets verkocht</div><div class="kpi-value"><span class="skeleton" style="width:80px">&nbsp;</span></div></div>
+  <div class="kpi"><div class="kpi-label">Betalingen</div><div class="kpi-value"><span class="skeleton" style="width:60px">&nbsp;</span></div></div>
+  <div class="kpi"><div class="kpi-label">Gem. bestelwaarde</div><div class="kpi-value"><span class="skeleton" style="width:90px">&nbsp;</span></div></div>
+</div>
+
+<div class="main-grid">
+  <!-- SHOWS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Voorstellingen</div>
+      <div class="card-meta" id="showCount">—</div>
+    </div>
+    <div class="show-list" id="showList">
+      <div class="empty-state">Laden...</div>
+    </div>
+  </div>
+
+  <!-- REVENUE CHART -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Omzet per betaling</div>
+      <div class="card-meta">gesorteerd op datum</div>
+    </div>
+    <svg class="rev-chart" id="revChart" viewBox="0 0 400 160"></svg>
+    <div style="margin-top:1.5rem">
+      <div class="card-header" style="margin-bottom:1rem">
+        <div class="card-title">Betaalstatus</div>
+      </div>
+      <div id="paymentBreakdown"></div>
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="card-header" style="margin-bottom:1rem">
+    <div class="card-title">Recente bestellingen</div>
+    <div class="card-meta" id="orderCount">—</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Bestelnr.</th>
+        <th>Klant</th>
+        <th>Voorstelling</th>
+        <th>Tickets</th>
+        <th>Bedrag</th>
+        <th>Betaalmethode</th>
+        <th>Status</th>
+        <th>Datum</th>
+      </tr>
+    </thead>
+    <tbody id="orderTable">
+      <tr><td colspan="8"><div class="empty-state">Laden...</div></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const DEFAULTS = {
+  orgId: 'd42b36a2-a20f-4930-b677-5d62599c90b3',
+  webshopId: '07e841fb-25a0-478d-a1a4-4d09df824938',
+  apiKey: 'I7IIIPHHZSYK6EMYAYSHFM91Y/T5WEFUCBJHK93NW40831OECO2VK0YUBBCXCH0IP+RRJWCQIFOUEV31U+YLV+HCHL+KSLDJEGW1E9XFSE1GF+RN7D0J+TX16UMB+PUA4RG1AJEUI8GHT2DTZT8ZI/LCPM5LGSG2XLVAM3LP1ZK4U2KSVVAQVLETTT3OPVCROHPO5UEAII/UAVJT1N2PORD4KH/LYPUM0EBI1CGYU+7QTP2LR2FP1P7P1HQ9OO88',
+  capacity: 239,
+};
+
+// Merge saved settings from localStorage over defaults
+const saved = JSON.parse(localStorage.getItem('theatre_dashboard_config') || '{}');
+const CONFIG = { ...DEFAULTS, ...saved };
+
+function apiBase() {
+  return `https://${CONFIG.orgId}.api.stamhoofd.app/v247`;
+}
+
+function headers() {
+  return { 'Authorization': `Bearer ${CONFIG.apiKey}`, 'Content-Type': 'application/json' };
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────
+function setStatus(msg, type = 'loading') {
+  const bar = document.getElementById('statusBar');
+  bar.textContent = msg;
+  bar.className = `status-bar ${type}`;
+}
+
+function fmt(cents) {
+  return '€ ' + (cents / 100).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('nl-BE', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function toggleDebug() {
+  const p = document.getElementById('debugPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function logDebug(msg) {
+  const p = document.getElementById('debugPanel');
+  p.textContent += msg + '\n';
+}
+
+function toggleConfig() {
+  const p = document.getElementById('configPanel');
+  const visible = p.classList.toggle('visible');
+  if (visible) {
+    document.getElementById('cfgOrgId').value = CONFIG.orgId;
+    document.getElementById('cfgWebshopId').value = CONFIG.webshopId;
+    document.getElementById('cfgApiKey').value = CONFIG.apiKey;
+  }
+}
+
+function saveConfig() {
+  CONFIG.orgId = document.getElementById('cfgOrgId').value.trim();
+  CONFIG.webshopId = document.getElementById('cfgWebshopId').value.trim();
+  CONFIG.apiKey = document.getElementById('cfgApiKey').value.trim();
+  // Persist to localStorage so settings survive page reloads
+  localStorage.setItem('theatre_dashboard_config', JSON.stringify({
+    orgId: CONFIG.orgId,
+    webshopId: CONFIG.webshopId,
+    apiKey: CONFIG.apiKey,
+  }));
+  toggleConfig();
+  loadData();
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────
+
+// Fetch ALL orders — deduplicated by order ID
+async function fetchAllOrders() {
+  const seenIds = new Set();
+  let allOrders = [];
+  let updatedSince = 0;
+  let lastId = null;
+
+  while (true) {
+    const url = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
+    url.searchParams.set('updatedSince', updatedSince);
+    if (lastId) url.searchParams.set('lastId', lastId);
+
+    const res = await fetch(url.toString(), { headers: headers() });
+    if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
+    const page = await res.json();
+
+    const items = Array.isArray(page) ? page : (page.results || page.orders || []);
+    if (!items.length) break;
+
+    // Log first order on first page
+    if (allOrders.length === 0) {
+      document.getElementById('debugPanel').textContent = '';
+      logDebug('=== FIRST RAW ORDER ===');
+      logDebug(JSON.stringify(items[0], null, 2).slice(0, 3000));
+    }
+
+    // Deduplicate by order ID
+    let newItems = 0;
+    for (const item of items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        allOrders.push(item);
+        newItems++;
+      }
+    }
+
+    setStatus(`⏳ ${allOrders.length} bestellingen geladen...`, 'loading');
+
+    // If ALL items on this page were duplicates, we've looped — stop
+    if (newItems === 0) break;
+
+    const last = items[items.length - 1];
+    const nextUpdatedSince = last?.updatedAt ?? last?.createdAt ?? updatedSince;
+    const nextLastId = last?.id;
+
+    // Stop if cursor didn't move
+    if (nextLastId === lastId) break;
+
+    lastId = nextLastId;
+    updatedSince = nextUpdatedSince;
+
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  logDebug(`\n=== TOTAL UNIQUE ORDERS FETCHED: ${allOrders.length} ===`);
+  return allOrders;
+}
+
+async function fetchWebshop() {
+  const res = await fetch(`${apiBase()}/webshop/${CONFIG.webshopId}`, { headers: headers() });
+  if (!res.ok) throw new Error(`Webshop API ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+async function loadData() {
+  setStatus('⏳ Data ophalen van Stamhoofd...', 'loading');
+  try {
+    const [orders, webshop] = await Promise.all([fetchAllOrders(), fetchWebshop()]);
+    window._webshop = webshop;
+    window._orders = orders;
+    // Log first product to debug panel
+    const prods = webshop?.products || webshop?.data?.products || [];
+    if (prods.length) {
+      logDebug('\n=== FIRST WEBSHOP PRODUCT (full) ===');
+      logDebug(JSON.stringify(prods[0], null, 2));
+      logDebug('\n=== WEBSHOP TOP-LEVEL KEYS ===');
+      logDebug(JSON.stringify(Object.keys(webshop), null, 2));
+      if (webshop.seatLayouts || webshop.seatingPlans || webshop.sections) {
+        logDebug('\n=== SEAT LAYOUTS ===');
+        logDebug(JSON.stringify(webshop.seatLayouts ?? webshop.seatingPlans ?? webshop.sections, null, 2).slice(0, 2000));
+      }
+    }
+    renderDashboard(orders, webshop);
+    setStatus(`✓ Laatste update: ${new Date().toLocaleTimeString('nl-BE')} — ${orders.length} bestellingen geladen`, 'success');
+  } catch (err) {
+    setStatus(`✗ Fout: ${err.message}`, 'error');
+    renderFallback();
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────
+function renderDashboard(orders, webshop) {
+  // Field accessors based on confirmed API response structure
+  const getPrice = o => o.payment?.price ?? 0;
+  const getStatus = o => o.payment?.status ?? o.status ?? 'Unknown';
+  const getItems = o => o.data?.cart?.items ?? [];
+  const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
+  const getOrderNr = o => {
+    const desc = o.balanceItems?.[0]?.description ?? '';
+    const m = desc.match(/#(\d+)/);
+    return m ? m[1] : null;
+  };
+  const getCustomer = o => o.data?.customer ?? null;
+  const getMethod = o => o.payment?.method ?? o.data?.paymentMethod ?? '—';
+  const uniqueOrders = orders;
+
+  const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
+  const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
+  const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
+  const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
+  const activeOrders = orders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
+  let totalTickets = 0;
+  activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
+
+  const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
+
+  const kpis = [
+    { label: 'Totale omzet', value: fmt(totalRevenue), sub: `${fmt(paidRevenue)} betaald` },
+    { label: 'Tickets verkocht', value: totalTickets, sub: `${uniqueOrders.length} bestellingen` },
+    { label: 'Betaald', value: paid.length, sub: `van ${uniqueOrders.length} bestellingen` },
+    { label: 'Gem. bestelwaarde', value: fmt(avgOrder), sub: 'per bestelling' },
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+    <div class="kpi loaded">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
+
+  // Shows from webshop products
+  renderShows(webshop, orders);
+
+  // Revenue chart (per unique order)
+  renderRevenueChart(uniqueOrders, getPrice, getCreatedAt);
+
+  // Payment breakdown (per unique order)
+  renderPaymentBreakdown(uniqueOrders, getStatus);
+
+  // Orders table (per unique order, enriched)
+  renderOrders(uniqueOrders, getPrice, getStatus, getItems, getCreatedAt, getOrderNr, getCustomer, getMethod);
+}
+
+function renderShows(webshop, orders) {
+  const products = webshop?.products || webshop?.data?.products || [];
+  const list = document.getElementById('showList');
+  document.getElementById('showCount').textContent = `${products.length} voorstelling${products.length !== 1 ? 'en' : ''}`;
+
+  if (!products.length) {
+    list.innerHTML = '<div class="empty-state">Geen voorstellingen gevonden in webshop</div>';
+    return;
+  }
+
+  // Count tickets sold per product+price from actual orders (non-cancelled)
+  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
+  const soldPerProduct = {};
+  orders.forEach(o => {
+    const status = o.payment?.status ?? o.status ?? '';
+    if (CANCELLED.includes(status)) return;
+    (o.data?.cart?.items ?? []).forEach(item => {
+      const pid = item.product?.id ?? item.productId;
+      if (pid) soldPerProduct[pid] = (soldPerProduct[pid] || 0) + (item.amount || 0);
+    });
+  });
+
+  // Sort products by date ascending
+  const sorted = [...products].sort((a, b) => (a.dateRange?.startDate ?? 0) - (b.dateRange?.startDate ?? 0));
+
+  list.innerHTML = sorted.map(p => {
+    const used = soldPerProduct[p.id] ?? p.usedStock ?? 0;
+    const reservedCount = (p.reservedSeats ?? []).length;
+    const capacity = CONFIG.capacity;
+    const free = capacity - used;
+    const pct = Math.round((used / capacity) * 100);
+    const fillClass = pct >= 90 ? 'almost' : pct >= 60 ? '' : 'good';
+
+    // Per-price-tier breakdown (e.g. Standaard 159/∞, VIP 0/36)
+    const visiblePrices = (p.prices ?? []).filter(pr => !pr.hidden && pr.price > 0);
+    const showDate = p.dateRange?.startDate ? fmtDate(p.dateRange.startDate) : '';
+    const showTime = p.dateRange?.startDate
+      ? new Date(p.dateRange.startDate).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
+      : '';
+
+    return `
+      <div class="show-item">
+        <div class="show-top">
+          <div class="show-name">${p.name || 'Naamloos'}</div>
+          <div class="show-date">${showDate}${showTime ? ' · ' + showTime : ''}</div>
+        </div>
+        <div class="show-stats">
+          <div>
+            <div class="show-stat-label">Verkocht</div>
+            <div class="show-stat-val">${used}</div>
+          </div>
+          <div>
+            <div class="show-stat-label">Capaciteit</div>
+            <div class="show-stat-val">${capacity}</div>
+          </div>
+          <div>
+            <div class="show-stat-label">Vrij</div>
+            <div class="show-stat-val">${free}</div>
+          </div>
+
+        </div>
+        <div class="seat-track" style="margin-bottom:0.35rem">
+          <div class="seat-fill ${fillClass}" style="width:0%" data-pct="${pct}"></div>
+        </div>
+        <div class="seat-pct">
+          <span>${pct}% bezet</span>
+          <span>${free} plaatsen vrij</span>
+        </div>
+
+        ${visiblePrices.length > 0 ? `
+          <div style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem">
+            <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.1rem">Per tariefcategorie</div>
+            ${visiblePrices.map(pr => {
+              const prUsed = pr.usedStock ?? 0;
+              const prCap = pr.stock !== null ? pr.stock : null;
+              const prPct = prCap !== null ? Math.round((prUsed / prCap) * 100) : null;
+              const prFill = (prPct ?? 50) >= 90 ? 'almost' : (prPct ?? 50) >= 60 ? '' : 'good';
+              return `<div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem">
+                  <span style="font-size:0.65rem;color:var(--muted)">${pr.name}</span>
+                  <span style="font-size:0.65rem;color:var(--text)">${prUsed}${prCap !== null ? ' / ' + prCap : ''}</span>
+                </div>
+                ${prCap !== null ? `<div class="seat-track"><div class="seat-fill ${prFill}" style="width:0%" data-pct="${prPct}"></div></div>` : `<div class="seat-track"><div class="seat-fill good" style="width:${Math.min(100, prUsed)}%" ></div></div>`}
+              </div>`;
+            }).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Animate bars
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.seat-fill[data-pct]').forEach(el => {
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+}
+
+function renderRevenueChart(orders, getPrice, getCreatedAt) {
+  const svg = document.getElementById('revChart');
+  if (!orders.length) { svg.innerHTML = '<text x="200" y="80" fill="var(--muted)" text-anchor="middle" font-family="DM Mono" font-size="12">Geen data</text>'; return; }
+
+  const sorted = [...orders].sort((a, b) => getCreatedAt(a) - getCreatedAt(b));
+  const values = sorted.map(o => getPrice(o) / 100);
+  const W = 400, H = 160, PL = 40, PR = 10, PT = 10, PB = 25;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const max = Math.max(...values, 1);
+  const n = values.length;
+
+  const px = i => PL + (n === 1 ? cW / 2 : (i / (n - 1)) * cW);
+
+  let bars = '';
+  const barW = Math.max(4, Math.min(20, cW / n - 3));
+  sorted.forEach((o, i) => {
+    const price = getPrice(o);
+    const status = (o.payment?.status ?? o.status ?? '');
+    const x = px(i) - barW / 2;
+    const h = (price / 100 / max) * cH;
+    const y = PT + cH - h;
+    const color = status === 'Succeeded' ? '#4caf7d' : status === 'Created' ? '#c9a84c' : '#7a7669';
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${color}" opacity="0.85" rx="1">
+      <title>${fmtDate(getCreatedAt(o))} — ${fmt(price)} — ${status}</title>
+    </rect>`;
+  });
+
+  let yLabels = '';
+  for (let i = 0; i <= 3; i++) {
+    const val = (max / 3) * i;
+    const y = PT + cH - (val / max) * cH;
+    yLabels += `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    yLabels += `<text x="${PL - 4}" y="${y + 4}" text-anchor="end" font-family="DM Mono" font-size="9" fill="var(--muted)">€${Math.round(val)}</text>`;
+  }
+
+  svg.innerHTML = yLabels + bars;
+}
+
+function renderPaymentBreakdown(orders, getStatus) {
+  const statuses = {};
+  orders.forEach(o => { const s = getStatus(o); statuses[s] = (statuses[s] || 0) + 1; });
+  const total = orders.length;
+  const labels = { Succeeded: 'Betaald', Created: 'Openstaand', Failed: 'Mislukt', Pending: 'In behandeling' };
+  const colors = { Succeeded: 'var(--green)', Created: 'var(--gold)', Failed: 'var(--red)', Pending: 'var(--muted)' };
+
+  document.getElementById('paymentBreakdown').innerHTML = Object.entries(statuses).map(([status, count]) => {
+    const pct = Math.round((count / total) * 100);
+    return `
+      <div style="display:grid;grid-template-columns:100px 1fr 40px;align-items:center;gap:0.75rem;margin-bottom:0.6rem">
+        <div style="font-size:0.65rem;color:var(--muted)">${labels[status] || status}</div>
+        <div style="background:var(--border);height:3px;border-radius:2px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${colors[status] || 'var(--muted)'};border-radius:2px;transition:width 1s"></div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--text);text-align:right">${count}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOrderNr, getCustomer, getMethod) {
+  const tbody = document.getElementById('orderTable');
+  document.getElementById('orderCount').textContent = `${orders.length} bestellingen`;
+
+  if (!orders.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen bestellingen gevonden</div></td></tr>';
+    return;
+  }
+
+  const sorted = [...orders].sort((a, b) => getCreatedAt(b) - getCreatedAt(a));
+  const pillClass = { Succeeded: 'pill-succeeded', Created: 'pill-created', Failed: 'pill-failed', Pending: 'pill-pending' };
+  const pillLabel = { Succeeded: 'Betaald', Created: 'Openstaand', Failed: 'Mislukt', Pending: 'Bezig' };
+
+  const PAGE_SIZE = 10;
+  let showing = Math.min(PAGE_SIZE, sorted.length);
+
+  function renderRows() {
+    tbody.innerHTML = sorted.slice(0, showing).map(o => {
+    const customer = getCustomer(o);
+    const items = getItems(o);
+    const showName = items[0]?.product?.name || '—';
+    const ticketCount = items.reduce((s, i) => s + (i.amount || 0), 0);
+    const orderNr = getOrderNr(o) ? `#${getOrderNr(o)}` : '—';
+    const status = getStatus(o);
+    const price = getPrice(o);
+    const method = getMethod(o);
+
+    return `<tr>
+      <td>${orderNr}</td>
+      <td>${customer ? `${customer.firstName} ${customer.lastName}` : '—'}</td>
+      <td style="color:var(--muted);font-style:italic">${showName}</td>
+      <td>${ticketCount || '—'}</td>
+      <td>${fmt(price)}</td>
+      <td style="color:var(--muted)">${method}</td>
+      <td><span class="status-pill ${pillClass[status] || 'pill-pending'}">${pillLabel[status] || status}</span></td>
+      <td style="color:var(--muted)">${fmtDate(getCreatedAt(o))}</td>
+    </tr>`;
+    }).join('');
+
+    // Show more button
+    const existingBtn = document.getElementById('showMoreBtn');
+    if (existingBtn) existingBtn.remove();
+
+    if (showing < sorted.length) {
+      const btn = document.createElement('div');
+      btn.id = 'showMoreBtn';
+      btn.style.cssText = 'text-align:center;padding:1.25rem;border-top:1px solid var(--border)';
+      btn.innerHTML = `<button class="btn" onclick="showMore()" style="padding:0.5rem 2rem">
+        ↓ Meer tonen (${sorted.length - showing} verborgen)
+      </button>`;
+      tbody.closest('table').after(btn);
+    }
+  }
+
+  window.showMore = function() {
+    showing = Math.min(showing + PAGE_SIZE, sorted.length);
+    renderRows();
+  };
+
+  renderRows();
+}
+
+function renderFallback() {
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Totale omzet</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+    <div class="kpi"><div class="kpi-label">Tickets verkocht</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+    <div class="kpi"><div class="kpi-label">Betaald</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+    <div class="kpi"><div class="kpi-label">Gem. bestelwaarde</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+  `;
+  document.getElementById('showList').innerHTML = '<div class="empty-state">Kon geen data laden. Controleer je API-instellingen via ⚙ Instellingen.</div>';
+  document.getElementById('orderTable').innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen data beschikbaar</div></td></tr>';
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+document.getElementById('liveDate').textContent = new Date().toLocaleDateString('nl-BE', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+});
+
+loadData();
+
+// Auto-refresh every 5 minutes
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
