@@ -604,9 +604,10 @@ function apiBase() {
 
 // Wraps a URL through the CORS proxy if one is configured
 // Passes apiKey as query param since Cloudflare strips Authorization headers on subrequests
-function proxied(url) {
+function proxied(url, withAuth) {
   if (CONFIG.proxyUrl) {
-    return `${CONFIG.proxyUrl}/proxy?apiKey=${encodeURIComponent(CONFIG.apiKey)}&url=${encodeURIComponent(url)}`;
+    const base = CONFIG.proxyUrl + '/proxy?url=' + encodeURIComponent(url);
+    return (withAuth !== false) ? base + '&apiKey=' + encodeURIComponent(CONFIG.apiKey) : base;
   }
   return url;
 }
@@ -838,11 +839,20 @@ function renderShows(webshop, orders) {
       ? new Date(p.dateRange.startDate).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
       : '';
 
+    const avail = used >= 234
+      ? { label: 'Uitverkocht', color: '#b83232', bg: '#fad7d7' }
+      : used >= 191
+        ? { label: 'Laatste kaarten', color: '#8b6914', bg: '#f5e9c0' }
+        : { label: 'Vrij', color: '#2e7d52', bg: '#d4edde' };
+
     return `
       <div class="show-item">
         <div class="show-top">
           <div class="show-name">${p.name || 'Naamloos'}</div>
-          <div class="show-date">${showDate}${showTime ? ' · ' + showTime : ''}</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <span style="font-size:0.6rem;font-weight:600;letter-spacing:0.05em;padding:0.15rem 0.5rem;background:${avail.bg};color:${avail.color};border-radius:2px">${avail.label}</span>
+            <div class="show-date">${showDate}${showTime ? ' · ' + showTime : ''}</div>
+          </div>
         </div>
         <div class="show-stats">
           <div>
@@ -1172,7 +1182,7 @@ async function fetchStamhoofdStatus() {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
   try {
-    const fetchUrl = proxied('https://status.stamhoofd.app/nl');
+    const fetchUrl = proxied('https://status.stamhoofd.app/nl', false);
     const res = await fetch(fetchUrl, { cache: 'no-store' });
     const text = await res.text();
     if (text.includes('Alle services zijn online')) {
