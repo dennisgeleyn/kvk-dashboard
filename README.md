@@ -18,7 +18,8 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 - **Payment status breakdown** and **recent orders table**
 - **Stamhoofd system status** — live status pill in the header
 - **Auto-refresh** every 5 minutes
-- **Mobile-friendly** — responsive layout
+- **Mobile-friendly** — responsive layout, wide logo on desktop / square logo on mobile
+- **Debug panel** — visible to admins only
 
 ---
 
@@ -37,15 +38,18 @@ Browser → Cloudflare Worker → Stamhoofd API
 There are no passwords for regular users. Instead:
 
 1. User enters their email on the login screen → Worker sends a one-time login link
-2. User clicks the link → Worker validates the token → session is created in KV
-3. Sessions last 7 days; tokens expire after 15 minutes and are single-use
-4. To log in again after 7 days, they just request a new link
+2. User copies the link from the email and opens it in their browser
+3. Worker validates the token → session is created in KV
+4. Sessions last 7 days; tokens expire after 15 minutes and are single-use
+5. To log in again after 7 days, they just request a new link
+
+> **Note:** Magic links are currently sent as plain text (not clickable buttons) to avoid Resend's click-tracking wrapper distorting the URL. Once you verify your own sending domain in Resend and disable click tracking there, you can switch back to buttons.
 
 Admin login uses a password (stored as a Worker secret, never in source code).
 
 ### Security model
 
-- **API key** — Cloudflare Worker secret, never in the browser
+- **API key** — Cloudflare Worker secret, never in the browser or source code
 - **Admin password** — Cloudflare Worker secret, validated server-side
 - **No passwords stored** for regular users — magic link tokens only
 - **Sessions in KV** — invalidated on logout, expire server-side after 7 days
@@ -60,13 +64,16 @@ Admin login uses a password (stored as a Worker secret, never in source code).
 
 1. Sign up at [resend.com](https://resend.com) (free tier: 100 emails/day)
 2. Create an API key
-3. For production: verify your sending domain. For testing: use `onboarding@resend.dev` as the sender (can only send to your own verified email address)
+3. For production: verify your own sending domain and disable click tracking. For testing: use `onboarding@resend.dev` as the sender (can only send to your own verified email address)
 
 ### 2. Deploy the Cloudflare Worker
 
+The worker auto-deploys to Cloudflare via GitHub Actions on every push to `main` that touches `stamhoofd-proxy-worker.js` or `wrangler.toml`.
+
+For the initial manual setup:
 1. Create a free account at [workers.cloudflare.com](https://workers.cloudflare.com)
-2. Create a new Worker and paste `stamhoofd-proxy-worker.js`
-3. Deploy — note your worker URL (e.g. `https://your-worker.your-name.workers.dev`)
+2. Create a new Worker, paste `stamhoofd-proxy-worker.js`, and deploy
+3. Note your worker URL (e.g. `https://wandering-boat-05cb.dennisgeleyn.workers.dev`)
 
 #### Add secrets
 
@@ -81,17 +88,30 @@ In **Worker → Settings → Variables & Secrets**, add:
 | `NOTIFY_FROM` | Sender address (`onboarding@resend.dev` for testing) |
 | `DASHBOARD_URL` | `https://dennisgeleyn.github.io/kvk-dashboard` |
 
+> Secrets are set once in the Cloudflare dashboard and are never touched by GitHub Actions deployments.
+
 #### Create a KV namespace
 
 1. **Cloudflare dashboard → Workers & Pages → KV → Create namespace** (name it anything)
 2. **Worker → Settings → Variables → KV Namespace Bindings → Add binding**
    - Variable name: `KVK_STORE` (must be exactly this)
    - Namespace: select the one you just created
-3. Redeploy the worker after adding the binding
+3. Copy the namespace ID into `wrangler.toml`
+
+#### GitHub Actions auto-deploy
+
+Add these two secrets to your GitHub repo (**Settings → Secrets and variables → Actions**):
+
+| Secret | Where to find it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → right sidebar |
+
+From then on, every push to `main` that touches the worker file deploys automatically.
 
 ### 3. Configure the dashboard
 
-Open `index.html` and update the `DEFAULTS` block:
+Open `index.html` and update the `DEFAULTS` block near the top of the script:
 
 ```js
 const DEFAULTS = {
@@ -103,8 +123,8 @@ const DEFAULTS = {
 
 ### 4. Publish via GitHub Pages
 
-1. Push `index.html` to a GitHub repository
-2. **Settings → Pages** → set source to `main` branch
+1. Push all files to a GitHub repository
+2. **Settings → Pages** → set source to `main` branch, root folder
 3. Live at `https://your-username.github.io/your-repo/`
 
 ---
@@ -113,18 +133,18 @@ const DEFAULTS = {
 
 ### Admin login
 
-On the login screen, enter `admin` or `beheerder` as the email address. You'll be prompted for the admin password.
+On the login screen, type `admin` or `beheerder` as the email address. A password prompt appears inline — no separate page.
 
 ### Granting access
 
-Users click **"Toegang aanvragen"**, enter their name and email. You receive an email notification. Then:
-
-1. Click **⚙ Instellingen** → scroll to **Gebruikersbeheer**
-2. Click **Goedkeuren + stuur link** → user is approved and receives a magic login link by email immediately
+1. User clicks **"Toegang aanvragen"**, fills in name and email
+2. You receive an email notification
+3. Log in as admin → **⚙ Instellingen** → **Gebruikersbeheer**
+4. Click **Goedkeuren** → user is approved and immediately receives a magic login link by email
 
 ### Revoking access
 
-Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessions remain valid until they expire (max 7 days).
+Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessions expire within 7 days at most.
 
 ---
 
@@ -132,9 +152,11 @@ Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessi
 
 | File | Description |
 |---|---|
-| `index.html` | Complete dashboard — single file, no build required |
-| `stamhoofd-proxy-worker.js` | Cloudflare Worker: proxy, auth, magic links, KV user management |
-| `README.md` | This documentation |
+| `index.html` | Complete dashboard — single file, no build required, logos embedded |
+| `stamhoofd-proxy-worker.js` | Cloudflare Worker: API proxy, admin auth, magic links, KV user management |
+| `wrangler.toml` | Wrangler config for automated Cloudflare deployments |
+| `.github/workflows/deploy-worker.yml` | GitHub Actions workflow — auto-deploys worker on push |
+| `README.md` | This file |
 
 ---
 
