@@ -541,7 +541,7 @@
   <!-- WEEK CHART -->
   <div class="card" style="position:relative">
     <div class="card-header">
-      <div class="card-title">Bestellingen per week</div>
+      <div class="card-title">Tickets per week</div>
       <div class="card-meta" id="weekChartMeta">—</div>
     </div>
     <div style="position:relative">
@@ -791,7 +791,7 @@ function renderDashboard(orders, webshop) {
   renderShows(webshop, orders);
 
   // Weekly orders chart + payment breakdown
-  renderWeekChart(uniqueOrders, getCreatedAt);
+  renderWeekChart(uniqueOrders, getCreatedAt, getItems);
   renderPaymentBreakdown(uniqueOrders, getStatus);
 
   // Orders table
@@ -1018,7 +1018,7 @@ function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOr
   renderRows();
 }
 
-function renderWeekChart(orders, getCreatedAt) {
+function renderWeekChart(orders, getCreatedAt, getItems) {
   const svg = document.getElementById('weekChart');
   const tooltip = document.getElementById('weekTooltip');
   if (!orders.length) return;
@@ -1041,13 +1041,16 @@ function renderWeekChart(orders, getCreatedAt) {
   }
 
   const weeks = {};
+  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
   orders.forEach(o => {
+    if (CANCELLED.includes(o.payment && o.payment.status ? o.payment.status : '')) return;
     const key = getWeekKey(getCreatedAt(o));
-    weeks[key] = (weeks[key] || 0) + 1;
+    const tickets = getItems(o).reduce(function(s, i) { return s + (i.amount || 0); }, 0);
+    weeks[key] = (weeks[key] || 0) + tickets;
   });
 
   const sorted = Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]));
-  document.getElementById('weekChartMeta').textContent = sorted.length + ' weken';
+  document.getElementById('weekChartMeta').textContent = sorted.length + ' weken — ' + counts.reduce(function(a,b){return a+b;},0) + ' tickets totaal';
 
   const W = 800, H = 200, PL = 36, PR = 10, PT = 10, PB = 30;
   const cW = W - PL - PR, cH = H - PT - PB;
@@ -1099,7 +1102,7 @@ function showWeekTooltip(event, rect) {
   endD.setDate(d.getDate() + 6);
   const fmt = function(dt) { return dt.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }); };
   tooltip.innerHTML = '<strong>Week ' + weekNr + '</strong> &nbsp;' + fmt(d) + ' – ' + fmt(endD)
-    + '<br><span style="color:var(--gold)">' + count + ' bestelling' + (count != 1 ? 'en' : '') + '</span>';
+    + '<br><span style="color:var(--gold)">' + count + ' ticket' + (count != 1 ? 's' : '') + '</span>';
   tooltip.style.display = 'block';
   // Position relative to the SVG container
   const svgEl = document.getElementById('weekChart');
