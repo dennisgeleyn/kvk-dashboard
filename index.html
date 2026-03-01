@@ -1531,6 +1531,7 @@ async function doRequestAccess() {
     const data = await res.json();
     if (data.ok) {
       okEl.textContent = 'Aanvraag verzonden! Je ontvangt een e-mail zodra de beheerder je goedkeurt.';
+      if (data.emailError) console.warn('Admin notification email failed:', data.emailError);
       document.getElementById('reqName').value  = '';
       document.getElementById('reqEmail').value = '';
     } else if (data.reason === 'duplicate') {
