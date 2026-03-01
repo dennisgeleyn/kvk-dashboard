@@ -1167,12 +1167,16 @@ async function checkAdminPw() {
 
 // ─── STAMHOOFD STATUS ─────────────────────────────────────
 async function fetchStamhoofdStatus() {
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
   try {
-    const res = await fetch('https://status.stamhoofd.app/nl', { cache: 'no-store' });
+    // Route through proxy to avoid CORS block; allow any domain for status page
+    const statusUrl = 'https://status.stamhoofd.app/nl';
+    const fetchUrl = CONFIG.proxyUrl
+      ? CONFIG.proxyUrl + '/proxy?url=' + encodeURIComponent(statusUrl)
+      : statusUrl;
+    const res = await fetch(fetchUrl, { cache: 'no-store' });
     const text = await res.text();
-    const dot = document.getElementById('statusDot');
-    const label = document.getElementById('statusLabel');
-    // Parse the overall status from the page heading
     if (text.includes('Alle services zijn online')) {
       dot.style.background = 'var(--green)';
       label.textContent = 'Stamhoofd online';
@@ -1187,7 +1191,8 @@ async function fetchStamhoofdStatus() {
       label.textContent = 'Status onbekend';
     }
   } catch(e) {
-    document.getElementById('statusLabel').textContent = 'Status onbekend';
+    dot.style.background = 'var(--muted)';
+    label.textContent = 'Status onbekend';
   }
 }
 
