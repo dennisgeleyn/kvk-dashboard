@@ -1356,16 +1356,30 @@ function renderFallback() {
 
 // ─── AUTH & USER MANAGEMENT ───────────────────────────────
 
-// Storage keys
-const USERS_KEY    = 'kvk_users';     // shared: approved users {emailHash, pwHash}
-const REQUESTS_KEY = 'kvk_requests';  // shared: pending requests {id, name, emailHash, displayEmail, ts}
-const SESSION_KEY  = 'kvk_session';   // localStorage: {token, role, expires}
-const LOCKOUT_KEY  = 'kvk_lockout';   // localStorage: {attempts, until}
-const RESET_KEY    = 'kvk_resets';    // shared: one-time reset tokens {emailHash, token, expires}
+const SESSION_KEY  = 'kvk_session';
+const LOCKOUT_KEY  = 'kvk_lockout';
+const SESSION_DAYS = 7;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MINS = 15;
 
-const SESSION_DAYS   = 7;    // session expires after 7 days
-const MAX_ATTEMPTS   = 5;    // lockout after 5 failed attempts
-const LOCKOUT_MINS   = 15;   // lockout duration in minutes
+// ── Worker API helper ──────────────────────────────────────
+function workerFetch(path, opts = {}) {
+  return fetch(CONFIG.proxyUrl + path, {
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    ...opts
+  });
+}
+function workerAdmin(path, opts = {}) {
+  return workerFetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': getAdminToken(), ...(opts.headers || {}) }
+  });
+}
+function getAdminToken() {
+  // The admin token is the password itself, sent as a header — never stored in source
+  // We store it temporarily in sessionStorage after successful admin login
+  return sessionStorage.getItem('kvk_admin_token') || '';
+}
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -1378,6 +1392,7 @@ function getLockout() {
   catch(e) { return { attempts: 0, until: 0 }; }
 }
 function saveLockout(l) { localStorage.setItem(LOCKOUT_KEY, JSON.stringify(l)); }
+function clearLockout() { localStorage.removeItem(LOCKOUT_KEY); }
 
 function checkLockout(errEl) {
   const l = getLockout();
@@ -1395,7 +1410,7 @@ function recordFailedAttempt(errEl) {
   if (l.attempts >= MAX_ATTEMPTS) {
     l.until = Date.now() + LOCKOUT_MINS * 60 * 1000;
     l.attempts = 0;
-    errEl.textContent = `Te veel pogingen. Account geblokkeerd voor ${LOCKOUT_MINS} minuten.`;
+    errEl.textContent = `Te veel pogingen. Geblokkeerd voor ${LOCKOUT_MINS} minuten.`;
   } else {
     const left = MAX_ATTEMPTS - l.attempts;
     errEl.textContent = `Ongeldig e-mailadres of wachtwoord. Nog ${left} poging${left === 1 ? '' : 'en'} voor blokkering.`;
@@ -1403,19 +1418,12 @@ function recordFailedAttempt(errEl) {
   saveLockout(l);
 }
 
-function clearLockout() {
-  localStorage.removeItem(LOCKOUT_KEY);
-}
-
 // ── Session helpers ────────────────────────────────────────
 function saveSession(role) {
-  const session = {
-    role,
-    expires: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000
-  };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    role, expires: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000
+  }));
 }
-
 function getSession() {
   try {
     const s = JSON.parse(localStorage.getItem(SESSION_KEY));
@@ -1424,17 +1432,12 @@ function getSession() {
     return s;
   } catch(e) { return null; }
 }
-
-function isAdmin() {
-  const s = getSession();
-  return s && s.role === 'admin';
-}
+function isAdmin() { const s = getSession(); return s && s.role === 'admin'; }
 
 // ── Tab switching ──────────────────────────────────────────
 function switchLoginTab(tab) {
-  document.getElementById('loginForm').style.display    = tab === 'login'   ? '' : 'none';
-  document.getElementById('requestForm').style.display  = tab === 'request' ? '' : 'none';
-  document.getElementById('resetForm') && (document.getElementById('resetForm').style.display = tab === 'reset' ? '' : 'none');
+  document.getElementById('loginForm').style.display   = tab === 'login'   ? '' : 'none';
+  document.getElementById('requestForm').style.display = tab === 'request' ? '' : 'none';
   document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
   document.getElementById('tabRequest').classList.toggle('active', tab === 'request');
   document.getElementById('loginError').textContent = '';
@@ -1452,16 +1455,13 @@ async function doLogin() {
   if (!email || !pw) { errEl.textContent = 'Vul je e-mailadres en wachtwoord in.'; return; }
   if (checkLockout(errEl)) return;
 
-  // Admin auth — verified by Worker, never client-side
+  // Admin — verified by Worker
   if (email === 'admin' || email === 'beheerder') {
     try {
-      const res = await fetch(CONFIG.proxyUrl + '/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
-      });
+      const res = await workerFetch('/auth', { method: 'POST', body: JSON.stringify({ password: pw }) });
       if (res.ok) {
         clearLockout();
+        sessionStorage.setItem('kvk_admin_token', pw); // keep for admin API calls this session
         saveSession('admin');
         hideLoginOverlay();
         return;
@@ -1471,34 +1471,17 @@ async function doLogin() {
     return;
   }
 
-  // Check one-time reset token first
+  // Regular user — verified by Worker
   const emailHash = await sha256(email);
+  const pwHash    = await sha256(pw);
   try {
-    const rr = await window.storage.get(RESET_KEY, true);
-    const resets = rr ? JSON.parse(rr.value) : [];
-    const reset = resets.find(r => r.emailHash === emailHash && r.token === pw && Date.now() < r.expires);
-    if (reset) {
-      // Valid reset token — log in and force password change
+    const res  = await workerFetch('/users/login', { method: 'POST', body: JSON.stringify({ emailHash, pwHash }) });
+    const data = await res.json();
+    if (data.ok) {
       clearLockout();
-      saveSession('user:' + emailHash);
-      // Remove the used token
-      await window.storage.set(RESET_KEY, JSON.stringify(resets.filter(r => r !== reset)), true);
+      saveSession('user:' + emailHash + ':' + pwHash); // store hashes for changepw
       hideLoginOverlay();
-      showPasswordChangePrompt();
-      return;
-    }
-  } catch(e) {}
-
-  // Regular user auth
-  const pwHash = await sha256(pw);
-  try {
-    const result = await window.storage.get(USERS_KEY, true);
-    const users = result ? JSON.parse(result.value) : [];
-    const user = users.find(u => u.emailHash === emailHash);
-    if (user && user.pwHash === pwHash) {
-      clearLockout();
-      saveSession('user:' + emailHash);
-      hideLoginOverlay();
+      if (data.mustChangePassword) showPasswordChangePrompt(emailHash, pwHash);
       return;
     }
   } catch(e) {}
@@ -1506,31 +1489,24 @@ async function doLogin() {
   recordFailedAttempt(errEl);
 }
 
-function showPasswordChangePrompt() {
-  // Show a simple prompt after login with reset token
-  setTimeout(() => {
-    const newPw = prompt('Je hebt ingelogd met een eenmalig wachtwoord. Kies een nieuw wachtwoord:');
-    if (newPw && newPw.length >= 6) {
-      changeOwnPassword(newPw);
-    }
+function showPasswordChangePrompt(emailHash, oldPwHash) {
+  setTimeout(async () => {
+    const newPw = prompt('Je hebt ingelogd met een eenmalig wachtwoord.\nKies een nieuw wachtwoord (minimaal 6 tekens):');
+    if (!newPw || newPw.length < 6) { alert('Wachtwoord te kort. Probeer opnieuw bij de volgende login.'); return; }
+    const newPwHash = await sha256(newPw);
+    try {
+      const res = await workerFetch('/users/changepw', { method: 'POST', body: JSON.stringify({ emailHash, oldPwHash, newPwHash }) });
+      const data = await res.json();
+      if (data.ok) {
+        alert('Wachtwoord succesvol gewijzigd!');
+        // Update session with new pw hash
+        saveSession('user:' + emailHash + ':' + newPwHash);
+      } else { alert('Kon wachtwoord niet opslaan. Probeer opnieuw.'); }
+    } catch(e) { alert('Fout: ' + e.message); }
   }, 500);
 }
 
-async function changeOwnPassword(newPw) {
-  const session = getSession();
-  if (!session || !session.role.startsWith('user:')) return;
-  const emailHash = session.role.replace('user:', '');
-  const pwHash = await sha256(newPw);
-  try {
-    const result = await window.storage.get(USERS_KEY, true);
-    const users = result ? JSON.parse(result.value) : [];
-    const idx = users.findIndex(u => u.emailHash === emailHash);
-    if (idx >= 0) { users[idx].pwHash = pwHash; }
-    await window.storage.set(USERS_KEY, JSON.stringify(users), true);
-    alert('Wachtwoord succesvol gewijzigd.');
-  } catch(e) { alert('Kon wachtwoord niet opslaan.'); }
-}
-
+// ── Request access ─────────────────────────────────────────
 async function doRequestAccess() {
   const name  = document.getElementById('reqName').value.trim();
   const email = document.getElementById('reqEmail').value.trim().toLowerCase();
@@ -1544,37 +1520,23 @@ async function doRequestAccess() {
 
   try {
     const emailHash = await sha256(email);
-    let requests = [];
-    try {
-      const r = await window.storage.get(REQUESTS_KEY, true);
-      if (r) requests = JSON.parse(r.value);
-    } catch(e) {}
-
-    // Check for duplicate (by hash, not plaintext email)
-    if (requests.find(r => r.emailHash === emailHash)) {
-      okEl.textContent = 'Je aanvraag is al ingediend. De beheerder neemt contact op.';
-      return;
-    }
-
-    // Store name and a display hint (first 3 chars + domain) but NOT the full email
     const [localPart, domain] = email.split('@');
     const displayEmail = localPart.slice(0, 3) + '***@' + domain;
-    const newReq = { id: Date.now().toString(), name, emailHash, displayEmail, ts: new Date().toISOString() };
-    requests.push(newReq);
-    await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
 
-    // Notify admin via Worker (fire and forget — don't block UX on email success)
-    if (CONFIG.proxyUrl) {
-      fetch(CONFIG.proxyUrl + '/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, displayEmail })
-      }).catch(() => {}); // silently ignore if email fails
+    const res  = await workerFetch('/requests', { method: 'POST', body: JSON.stringify({ name, emailHash, displayEmail }) });
+    const data = await res.json();
+
+    if (data.ok) {
+      okEl.textContent = 'Aanvraag verzonden! De beheerder geeft je toegang.';
+      document.getElementById('reqName').value  = '';
+      document.getElementById('reqEmail').value = '';
+    } else if (data.reason === 'duplicate') {
+      okEl.textContent = 'Je aanvraag is al ingediend. De beheerder neemt contact op.';
+    } else if (data.reason === 'already_approved') {
+      okEl.textContent = 'Dit e-mailadres heeft al toegang. Probeer in te loggen.';
+    } else {
+      errEl.textContent = 'Kon aanvraag niet opslaan. Probeer opnieuw.';
     }
-
-    okEl.textContent = 'Aanvraag verzonden! De beheerder geeft je toegang.';
-    document.getElementById('reqName').value  = '';
-    document.getElementById('reqEmail').value = '';
   } catch(e) {
     errEl.textContent = 'Fout: ' + (e && e.message ? e.message : String(e));
   }
@@ -1587,10 +1549,7 @@ function hideLoginOverlay() {
 }
 
 function checkSession() {
-  if (getSession()) {
-    hideLoginOverlay();
-  }
-  // Otherwise login overlay stays visible — session may have expired
+  if (getSession()) hideLoginOverlay();
 }
 
 // ─── USER MANAGEMENT (admin) ──────────────────────────────
@@ -1598,117 +1557,97 @@ function checkSession() {
 async function renderUserList() {
   const el = document.getElementById('userList');
   if (!el) return;
+  el.innerHTML = '<div class="empty-users">Laden...</div>';
 
-  let requests = [], users = [], resets = [];
-  try { const r = await window.storage.get(REQUESTS_KEY, true); if (r) requests = JSON.parse(r.value); } catch(e) {}
-  try { const r = await window.storage.get(USERS_KEY, true);    if (r) users    = JSON.parse(r.value); } catch(e) {}
-  try { const r = await window.storage.get(RESET_KEY, true);    if (r) resets   = JSON.parse(r.value); } catch(e) {}
+  try {
+    const res  = await workerAdmin('/users');
+    if (!res.ok) { el.innerHTML = '<div class="empty-users">Kon gebruikers niet laden.</div>'; return; }
+    const { users, requests, resets } = await res.json();
 
-  // Clean up expired reset tokens
-  const activeResets = resets.filter(r => Date.now() < r.expires);
-  if (activeResets.length !== resets.length) {
-    await window.storage.set(RESET_KEY, JSON.stringify(activeResets), true);
+    let html = '';
+
+    if (requests && requests.length) {
+      html += '<div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.4rem">Aanvragen</div>';
+      requests.forEach(req => {
+        html += '<div class="user-row">'
+          + '<div class="user-info"><div class="user-name">' + escHtml(req.name) + '</div>'
+          + '<div class="user-email">' + escHtml(req.displayEmail || '***') + '</div></div>'
+          + '<span class="user-status-pill pill-pending">In afwachting</span>'
+          + '<div class="user-actions">'
+          + '<input class="user-btn approve-pw" type="text" id="pw_' + req.id + '" placeholder="Wachtwoord">'
+          + '<button class="user-btn" onclick="approveUser(&quot;' + req.id + '&quot;)">Goedkeuren</button>'
+          + '<button class="user-btn danger" onclick="denyUser(&quot;' + req.id + '&quot;)">Weigeren</button>'
+          + '</div></div>';
+      });
+    }
+
+    if (users && users.length) {
+      html += '<div style="font-size:0.68rem;color:var(--muted);margin:0.75rem 0 0.4rem">Actieve gebruikers</div>';
+      users.forEach(u => {
+        const hasReset = resets && resets.some(r => r.emailHash === u.emailHash);
+        html += '<div class="user-row">'
+          + '<div class="user-info"><div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div></div>'
+          + '<span class="user-status-pill pill-active">Actief</span>'
+          + '<div class="user-actions">'
+          + (hasReset
+              ? '<span style="font-size:0.65rem;color:var(--gold)">Reset klaar</span>'
+              : '<button class="user-btn" onclick="generateReset(&quot;' + u.emailHash + '&quot;)">Reset pw</button>')
+          + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
+          + '</div></div>';
+      });
+    }
+
+    if ((!requests || !requests.length) && (!users || !users.length)) {
+      html = '<div class="empty-users">Nog geen aanvragen of gebruikers.</div>';
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div class="empty-users">Fout: ' + escHtml(String(e)) + '</div>';
   }
-
-  let html = '';
-
-  if (requests.length) {
-    html += '<div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.4rem">Aanvragen</div>';
-    requests.forEach(req => {
-      html += '<div class="user-row">'
-        + '<div class="user-info"><div class="user-name">' + escHtml(req.name) + '</div>'
-        + '<div class="user-email">' + escHtml(req.displayEmail || '***') + '</div></div>'
-        + '<span class="user-status-pill pill-pending">In afwachting</span>'
-        + '<div class="user-actions">'
-        + '<input class="user-btn approve-pw" type="text" id="pw_' + req.id + '" placeholder="Wachtwoord">'
-        + '<button class="user-btn" onclick="approveUser(&quot;' + req.id + '&quot;)">Goedkeuren</button>'
-        + '<button class="user-btn danger" onclick="denyUser(&quot;' + req.id + '&quot;)">Weigeren</button>'
-        + '</div></div>';
-    });
-  }
-
-  if (users.length) {
-    html += '<div style="font-size:0.68rem;color:var(--muted);margin:0.75rem 0 0.4rem">Actieve gebruikers</div>';
-    users.forEach(u => {
-      const hasReset = activeResets.some(r => r.emailHash === u.emailHash);
-      html += '<div class="user-row">'
-        + '<div class="user-info"><div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div></div>'
-        + '<span class="user-status-pill pill-active">Actief</span>'
-        + '<div class="user-actions">'
-        + (hasReset ? '<span style="font-size:0.65rem;color:var(--gold)">Reset klaar</span>' : '<button class="user-btn" onclick="generateReset(&quot;' + u.emailHash + '&quot;)">Reset pw</button>')
-        + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
-        + '</div></div>';
-    });
-  }
-
-  if (!requests.length && !users.length) {
-    html = '<div class="empty-users">Nog geen aanvragen of gebruikers.</div>';
-  }
-
-  el.innerHTML = html;
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 async function approveUser(reqId) {
   const pwInput = document.getElementById('pw_' + reqId);
   const pw = pwInput ? pwInput.value.trim() : '';
   if (!pw) { alert('Stel eerst een wachtwoord in voor deze gebruiker.'); return; }
-
-  let requests = [], users = [];
-  try { const r = await window.storage.get(REQUESTS_KEY, true); if (r) requests = JSON.parse(r.value); } catch(e) {}
-  try { const r = await window.storage.get(USERS_KEY, true);    if (r) users    = JSON.parse(r.value); } catch(e) {}
-
-  const req = requests.find(r => r.id === reqId);
-  if (!req) return;
-
   const pwHash = await sha256(pw);
-
-  // Use emailHash from request (already hashed when submitted)
-  users = users.filter(u => u.emailHash !== req.emailHash);
-  users.push({ emailHash: req.emailHash, displayEmail: req.displayEmail, pwHash });
-  requests = requests.filter(r => r.id !== reqId);
-
-  await window.storage.set(USERS_KEY,    JSON.stringify(users),    true);
-  await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
-  renderUserList();
-}
-
-async function generateReset(emailHash) {
-  // Generate a random one-time token (8 chars, easy to type)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let token = '';
-  const arr = new Uint8Array(8);
-  crypto.getRandomValues(arr);
-  arr.forEach(b => token += chars[b % chars.length]);
-
-  let resets = [];
-  try { const r = await window.storage.get(RESET_KEY, true); if (r) resets = JSON.parse(r.value); } catch(e) {}
-  resets = resets.filter(r => r.emailHash !== emailHash); // remove old resets for this user
-  resets.push({ emailHash, token, expires: Date.now() + 24 * 60 * 60 * 1000 }); // 24h expiry
-  await window.storage.set(RESET_KEY, JSON.stringify(resets), true);
-
-  alert('Eenmalig wachtwoord (geldig 24u):\n\n' + token + '\n\nGeef dit door aan de gebruiker. Ze worden gevraagd een nieuw wachtwoord in te stellen na inloggen.');
-  renderUserList();
+  try {
+    const res = await workerAdmin('/requests/' + reqId + '/approve', { method: 'POST', body: JSON.stringify({ pwHash }) });
+    if (res.ok) renderUserList();
+    else alert('Kon niet goedkeuren: ' + res.status);
+  } catch(e) { alert('Fout: ' + e.message); }
 }
 
 async function denyUser(reqId) {
-  let requests = [];
-  try { const r = await window.storage.get(REQUESTS_KEY, true); if (r) requests = JSON.parse(r.value); } catch(e) {}
-  requests = requests.filter(r => r.id !== reqId);
-  await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
-  renderUserList();
+  if (!confirm('Aanvraag weigeren?')) return;
+  try {
+    await workerAdmin('/requests/' + reqId + '/deny', { method: 'DELETE' });
+    renderUserList();
+  } catch(e) { alert('Fout: ' + e.message); }
+}
+
+async function generateReset(emailHash) {
+  try {
+    const res  = await workerAdmin('/users/' + emailHash + '/reset', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      alert('Eenmalig wachtwoord (geldig 24u):\n\n' + data.token + '\n\nGeef dit door aan de gebruiker. Ze worden gevraagd een nieuw wachtwoord in te stellen na inloggen.');
+      renderUserList();
+    } else { alert('Kon reset niet aanmaken.'); }
+  } catch(e) { alert('Fout: ' + e.message); }
 }
 
 async function revokeUser(emailHash) {
   if (!confirm('Toegang verwijderen voor deze gebruiker?')) return;
-  let users = [];
-  try { const r = await window.storage.get(USERS_KEY, true); if (r) users = JSON.parse(r.value); } catch(e) {}
-  users = users.filter(u => u.emailHash !== emailHash);
-  await window.storage.set(USERS_KEY, JSON.stringify(users), true);
-  renderUserList();
+  try {
+    await workerAdmin('/users/' + emailHash, { method: 'DELETE' });
+    renderUserList();
+  } catch(e) { alert('Fout: ' + e.message); }
 }
 
 // ─── ADMIN AUTH ───────────────────────────────────────────
