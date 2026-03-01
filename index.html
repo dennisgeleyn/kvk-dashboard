@@ -1173,11 +1173,7 @@ async function fetchStamhoofdStatus() {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
   try {
-    // Route through proxy to avoid CORS block; allow any domain for status page
-    const statusUrl = 'https://status.stamhoofd.app/nl';
-    const fetchUrl = CONFIG.proxyUrl
-      ? CONFIG.proxyUrl + '/proxy?url=' + encodeURIComponent(statusUrl)
-      : statusUrl;
+    const fetchUrl = proxied('https://status.stamhoofd.app/nl');
     const res = await fetch(fetchUrl, { cache: 'no-store' });
     const text = await res.text();
     if (text.includes('Alle services zijn online')) {
