@@ -166,4 +166,4 @@ Built for internal use by **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht vz
 Registered office: Kouterstraat 261, 9130 Kieldrecht, Belgium  
 Company number: 1010.418.811 — RPR Ghent, Dendermonde division
 
-Built with [Claude AI](https://claude.ai) by Anthropic.
+Built with [Claude](https://claude.ai) by Anthropic.
