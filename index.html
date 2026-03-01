@@ -605,9 +605,10 @@ function apiBase() {
 }
 
 // Wraps a URL through the CORS proxy if one is configured
+// Passes apiKey as query param since Cloudflare strips Authorization headers on subrequests
 function proxied(url) {
   if (CONFIG.proxyUrl) {
-    return `${CONFIG.proxyUrl}/proxy?url=${encodeURIComponent(url)}`;
+    return `${CONFIG.proxyUrl}/proxy?apiKey=${encodeURIComponent(CONFIG.apiKey)}&url=${encodeURIComponent(url)}`;
   }
   return url;
 }
