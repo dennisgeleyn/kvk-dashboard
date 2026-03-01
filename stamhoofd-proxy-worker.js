@@ -245,8 +245,8 @@ export default {
                     <tr><td style="padding:4px 16px 4px 0;color:#666">E-mail</td><td>${displayEmail}</td></tr>
                     <tr><td style="padding:4px 16px 4px 0;color:#666">Tijdstip</td><td>${new Date().toLocaleString('nl-BE')}</td></tr>
                   </table>
-                  <p style="margin-top:1.5rem">
-                    <a href="${DASHBOARD_URL}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none">Open dashboard</a>
+                  <p style="margin-top:1.5rem;font-size:0.8rem;color:#333">
+                    Open het dashboard: <span style="word-break:break-all">${DASHBOARD_URL}</span>
                   </p>
                   <p style="color:#999;font-size:0.75rem">Log in als beheerder → ⚙ Instellingen → Gebruikersbeheer.</p>
                 </div>`
