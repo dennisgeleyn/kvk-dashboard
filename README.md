@@ -14,78 +14,84 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
   - 🟢 **Vrij** — fewer than 194 tickets sold
   - 🟡 **Laatste kaarten** — 194 to 233 tickets sold
   - 🔴 **Uitverkocht** — 234 or more tickets sold
-- **Tickets per week** — bar chart with hover tooltip showing week number, date range, and total
-- **Payment status breakdown** — overview of all payment statuses
-- **Recent orders table** — paginated, 10 orders per page
+- **Tickets per week** — bar chart with hover tooltip
+- **Payment status breakdown** and **recent orders table**
 - **Stamhoofd system status** — live status pill in the header
-- **Auto-refresh** — data and status refresh every 5 minutes
-- **Mobile-friendly** — responsive layout, tested on iOS Safari and Firefox
+- **Auto-refresh** every 5 minutes
+- **Mobile-friendly** — responsive layout
 
 ---
 
 ## Architecture
 
-The dashboard is a **single HTML file** with no build step or external dependencies.
-
 ```
 Browser → Cloudflare Worker → Stamhoofd API
-                ↑
-         (holds API key + admin password securely)
+                ↕
+           Cloudflare KV  (users, requests, sessions, magic link tokens)
+                ↕
+             Resend API  (magic link emails + admin notifications)
 ```
 
-### Cloudflare Worker endpoints
+### How login works (magic links)
 
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/proxy?url=...` | GET/POST | CORS proxy to Stamhoofd API — injects API key server-side |
-| `/auth` | POST | Validates the admin password — returns 200 or 401 |
-| `/notify` | POST | Sends an email notification when someone requests access |
+There are no passwords for regular users. Instead:
+
+1. User enters their email on the login screen → Worker sends a one-time login link
+2. User clicks the link → Worker validates the token → session is created in KV
+3. Sessions last 7 days; tokens expire after 15 minutes and are single-use
+4. To log in again after 7 days, they just request a new link
+
+Admin login uses a password (stored as a Worker secret, never in source code).
 
 ### Security model
 
-- **API key** — stored as a Cloudflare Worker secret (`STAMHOOFD_API_KEY`), never exposed to the browser
-- **Admin password** — stored as a Cloudflare Worker secret (`ADMIN_PASSWORD`), validated server-side via `/auth`. No hash in the source code.
-- **Login system** — full login screen with session management:
-  - Sessions expire after **7 days**
-  - **5 failed attempts** trigger a **15-minute lockout** (applies to both the login screen and settings panel)
-  - Sessions stored in `localStorage` with expiry timestamp
-- **User data privacy** — email addresses are **never stored in plaintext**. Only SHA-256 hashes and a masked display hint (`den***@gmail.com`) are kept in shared storage.
-- **Password resets** — admin generates a random 8-character one-time token (valid 24 hours). User is prompted to set a new password after using it.
+- **API key** — Cloudflare Worker secret, never in the browser
+- **Admin password** — Cloudflare Worker secret, validated server-side
+- **No passwords stored** for regular users — magic link tokens only
+- **Sessions in KV** — invalidated on logout, expire server-side after 7 days
+- **Login lockout** — 5 failed admin attempts triggers a 15-minute lockout
+- **Email addresses** — only SHA-256 hashes stored in KV; display hints masked (`den***@gmail.com`)
 
 ---
 
 ## Setup
 
-### 1. Deploy the Cloudflare Worker
+### 1. Create a Resend account
+
+1. Sign up at [resend.com](https://resend.com) (free tier: 100 emails/day)
+2. Create an API key
+3. For production: verify your sending domain. For testing: use `onboarding@resend.dev` as the sender (can only send to your own verified email address)
+
+### 2. Deploy the Cloudflare Worker
 
 1. Create a free account at [workers.cloudflare.com](https://workers.cloudflare.com)
-2. Create a new Worker and paste the contents of `stamhoofd-proxy-worker.js`
-3. Deploy — you'll get a URL like `https://your-worker.your-name.workers.dev`
-4. Add the following secrets in **Settings → Variables & Secrets**:
+2. Create a new Worker and paste `stamhoofd-proxy-worker.js`
+3. Deploy — note your worker URL (e.g. `https://your-worker.your-name.workers.dev`)
 
-| Secret name | Value |
+#### Add secrets
+
+In **Worker → Settings → Variables & Secrets**, add:
+
+| Secret | Value |
 |---|---|
 | `STAMHOOFD_API_KEY` | Your Stamhoofd API key |
-| `ADMIN_PASSWORD` | Your chosen admin password |
-| `NOTIFY_TO` | Email address to receive access request notifications |
-| `RESEND_API_KEY` | API key from [resend.com](https://resend.com) (free tier: 100 emails/day) |
-| `NOTIFY_FROM` | Sender address (use `onboarding@resend.dev` for testing, or a verified domain) |
+| `ADMIN_PASSWORD` | Your admin password |
+| `RESEND_API_KEY` | Your Resend API key |
+| `NOTIFY_TO` | Your email — receives access request notifications |
+| `NOTIFY_FROM` | Sender address (`onboarding@resend.dev` for testing) |
+| `DASHBOARD_URL` | `https://dennisgeleyn.github.io/kvk-dashboard` |
 
-> `RESEND_API_KEY`, `NOTIFY_TO`, and `NOTIFY_FROM` are optional. If omitted, access request notifications are simply not sent — the dashboard still works fully.
+#### Create a KV namespace
 
-#### KV namespace binding (required for user management)
+1. **Cloudflare dashboard → Workers & Pages → KV → Create namespace** (name it anything)
+2. **Worker → Settings → Variables → KV Namespace Bindings → Add binding**
+   - Variable name: `KVK_STORE` (must be exactly this)
+   - Namespace: select the one you just created
+3. Redeploy the worker after adding the binding
 
-User accounts, access requests, and password reset tokens are stored in Cloudflare KV.
+### 3. Configure the dashboard
 
-1. Go to **Cloudflare dashboard → Workers & Pages → KV**
-2. Click **Create namespace** and name it anything (e.g. `kvk-store`)
-3. Go to your Worker → **Settings → Variables → KV Namespace Bindings**
-4. Click **Add binding** — set the variable name to exactly **`KVK_STORE`** and select the namespace you just created
-5. Save and redeploy
-
-### 2. Configure the dashboard
-
-Open `index.html` and update the `DEFAULTS` block near the top of the script:
+Open `index.html` and update the `DEFAULTS` block:
 
 ```js
 const DEFAULTS = {
@@ -95,45 +101,30 @@ const DEFAULTS = {
 };
 ```
 
-The API key and admin password are no longer configured here — they live in the Worker.
+### 4. Publish via GitHub Pages
 
-### 3. Publish via GitHub Pages
-
-1. Create a GitHub repository
-2. Upload `index.html` as the main page
-3. Go to **Settings → Pages** and set the source to the `main` branch
-4. Your dashboard will be live at `https://your-username.github.io/your-repo/`
+1. Push `index.html` to a GitHub repository
+2. **Settings → Pages** → set source to `main` branch
+3. Live at `https://your-username.github.io/your-repo/`
 
 ---
 
 ## User management
 
-The dashboard has a built-in user system accessible from the admin settings panel.
+### Admin login
 
-### Logging in as admin
+On the login screen, enter `admin` or `beheerder` as the email address. You'll be prompted for the admin password.
 
-On the login screen, enter:
-- **E-mailadres:** `admin` or `beheerder`
-- **Wachtwoord:** your `ADMIN_PASSWORD`
+### Granting access
 
-### Granting access to others
+Users click **"Toegang aanvragen"**, enter their name and email. You receive an email notification. Then:
 
-Users can request access via the **"Toegang aanvragen"** tab on the login screen. As admin:
-
-1. Click **⚙ Instellingen** in the toolbar
-2. Scroll to **Gebruikersbeheer**
-3. Pending requests appear with a name and masked email
-4. Enter a password and click **Goedkeuren** — or click **Weigeren** to decline
-
-### Resetting a password
-
-1. In **Gebruikersbeheer**, click **Reset pw** next to the user
-2. A one-time 8-character code is generated and shown in a popup (valid for 24 hours)
-3. Share it with the user — they'll be prompted to set a new password after logging in
+1. Click **⚙ Instellingen** → scroll to **Gebruikersbeheer**
+2. Click **Goedkeuren + stuur link** → user is approved and receives a magic login link by email immediately
 
 ### Revoking access
 
-Click **Verwijderen** next to any active user in **Gebruikersbeheer**.
+Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessions remain valid until they expire (max 7 days).
 
 ---
 
@@ -141,8 +132,8 @@ Click **Verwijderen** next to any active user in **Gebruikersbeheer**.
 
 | File | Description |
 |---|---|
-| `index.html` | The complete dashboard — single file, no build required |
-| `stamhoofd-proxy-worker.js` | Cloudflare Worker: CORS proxy, admin auth, and email notifications |
+| `index.html` | Complete dashboard — single file, no build required |
+| `stamhoofd-proxy-worker.js` | Cloudflare Worker: proxy, auth, magic links, KV user management |
 | `README.md` | This documentation |
 
 ---
