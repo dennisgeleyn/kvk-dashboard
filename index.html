@@ -587,8 +587,7 @@
 const DEFAULTS = {
   orgId: 'd42b36a2-a20f-4930-b677-5d62599c90b3',
   webshopId: '07e841fb-25a0-478d-a1a4-4d09df824938',
-  apiKey: 'O1SP0SDFTQPAS2R0GOLNX/NWRLVL4URW7R80KUZBCYGQNS8XPLTD2X2+BZXAJJY3I7YKNOMRMOSS+DABBE9IBHBLSTNMO++V/J0QLQSV45SIUULKQ/T+HOIJ2CCE0IW6ACFC0N6E2MMJJKL12AEVZVPS+VK2FCA1IBK/MIDFO/GJPLHWBD+WA4BOD9YENPJKZSDJW6PR9IA7THKOUUZMHHGEERM8A8OXIJGCBAOFN7MHLTT1YXWQFI+YMFUY0IBF
-',
+  apiKey: 'O1SP0SDFTQPAS2R0GOLNX/NWRLVL4URW7R80KUZBCYGQNS8XPLTD2X2+BZXAJJY3I7YKNOMRMOSS+DABBE9IBHBLSTNMO++V/J0QLQSV45SIUULKQ/T+HOIJ2CCE0IW6ACFC0N6E2MMJJKL12AEVZVPS+VK2FCA1IBK/MIDFO/GJPLHWBD+WA4BOD9YENPJKZSDJW6PR9IA7THKOUUZMHHGEERM8A8OXIJGCBAOFN7MHLTT1YXWQFI+YMFUY0IBF',
   capacity: 239,
   // After deploying the Cloudflare Worker, paste its URL here
   // e.g. 'https://stamhoofd-proxy.yourname.workers.dev'
@@ -726,7 +725,7 @@ async function fetchAllOrders() {
     await new Promise(r => setTimeout(r, 250));
   }
 
-  logDebug(`\n=== TOTAL UNIQUE ORDERS FETCHED: ${allOrders.length} ===`);
+  logDebug('=== TOTAL UNIQUE ORDERS FETCHED: ' + allOrders.length + ' ===');
   return allOrders;
 }
 
@@ -740,24 +739,10 @@ async function loadData() {
   setStatus('⏳ Data ophalen van Stamhoofd...', 'loading');
   try {
     const [orders, webshop] = await Promise.all([fetchAllOrders(), fetchWebshop()]);
-    window._webshop = webshop;
-    window._orders = orders;
-    // Log first product to debug panel
-    const prods = webshop?.products || webshop?.data?.products || [];
-    if (prods.length) {
-      logDebug('\n=== FIRST WEBSHOP PRODUCT (full) ===');
-      logDebug(JSON.stringify(prods[0], null, 2));
-      logDebug('\n=== WEBSHOP TOP-LEVEL KEYS ===');
-      logDebug(JSON.stringify(Object.keys(webshop), null, 2));
-      if (webshop.seatLayouts || webshop.seatingPlans || webshop.sections) {
-        logDebug('\n=== SEAT LAYOUTS ===');
-        logDebug(JSON.stringify(webshop.seatLayouts ?? webshop.seatingPlans ?? webshop.sections, null, 2).slice(0, 2000));
-      }
-    }
     renderDashboard(orders, webshop);
-    setStatus(`✓ Laatste update: ${new Date().toLocaleTimeString('nl-BE')} — ${orders.length} bestellingen geladen`, 'success');
+    setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + orders.length + ' bestellingen geladen', 'success');
   } catch (err) {
-    setStatus(`✗ Fout: ${err.message}`, 'error');
+    setStatus('✗ Fout: ' + err.message, 'error');
     renderFallback();
   }
 }
