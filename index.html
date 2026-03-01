@@ -1547,7 +1547,10 @@ async function doRequestAccess() {
   }
 }
 
+let _loggedIn = false;
+
 function hideLoginOverlay() {
+  _loggedIn = true;
   document.getElementById('loginOverlay').style.display = 'none';
   loadData();
   fetchStamhoofdStatus();
@@ -1584,7 +1587,6 @@ async function doLogout() {
   sessionStorage.removeItem('kvk_admin_token');
   clearLockout();
   location.reload();
-}
 }
 
 // ─── USER MANAGEMENT (admin) ──────────────────────────────
@@ -1675,18 +1677,14 @@ async function revokeUser(emailHash) {
 
 function openAdminOverlay() {
   if (isAdmin()) { toggleConfig(); return; }
-  // If login overlay is still visible, show the inline admin form inside it
-  // (check offsetParent/offsetHeight rather than inline style, which may be unset)
-  const loginOverlay = document.getElementById('loginOverlay');
-  if (loginOverlay && loginOverlay.offsetHeight > 0) {
+  if (!_loggedIn) {
     showAdminLoginForm();
-    return;
+  } else {
+    document.getElementById('adminOverlay').style.display = 'flex';
+    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwError').style.display = 'none';
+    setTimeout(() => document.getElementById('adminPwInput').focus(), 50);
   }
-  // Otherwise use the standalone overlay (e.g. from toolbar button)
-  document.getElementById('adminOverlay').style.display = 'flex';
-  document.getElementById('adminPwInput').value = '';
-  document.getElementById('adminPwError').style.display = 'none';
-  setTimeout(() => document.getElementById('adminPwInput').focus(), 50);
 }
 
 function showAdminLoginForm() {
