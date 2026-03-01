@@ -1054,7 +1054,7 @@ function renderShows(webshop, orders) {
 
     const avail = used >= 234
       ? { label: 'Uitverkocht', color: '#b83232', bg: '#fad7d7' }
-      : used >= 194
+      : used >= 191
         ? { label: 'Laatste kaarten', color: '#8b6914', bg: '#f5e9c0' }
         : { label: 'Vrij', color: '#2e7d52', bg: '#d4edde' };
 
@@ -1556,7 +1556,11 @@ async function checkSession() {
   // First: check for magic link token in URL
   const tokenValid = await checkMagicToken();
   if (tokenValid) { hideLoginOverlay(); return; }
-  // Second: check existing session token with Worker
+
+  // Second: admin session is tracked by sessionStorage token (survives page refresh, not tab close)
+  if (sessionStorage.getItem('kvk_admin_token')) { hideLoginOverlay(); return; }
+
+  // Third: check regular user session token with Worker
   const sessionToken = getSessionToken();
   if (sessionToken) {
     try {
@@ -1690,8 +1694,7 @@ async function checkAdminPw() {
     const res = await workerFetch('/auth', { method: 'POST', body: JSON.stringify({ password: pw }) });
     if (res.ok) {
       clearLockout();
-      sessionStorage.setItem('kvk_admin_token', pw);
-      saveSession('__admin__');
+      sessionStorage.setItem('kvk_admin_token', pw); // survives refresh, cleared on tab close
       closeAdminOverlay();
       toggleConfig();
       return;
@@ -1749,6 +1752,7 @@ document.getElementById('liveDate').textContent = new Date().toLocaleDateString(
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
 });
 
+// Check for existing session; if none, login overlay stays visible
 // Check for existing session; if none, login overlay stays visible
 checkSession();
 
@@ -1833,7 +1837,7 @@ function doLogout() {
     <span>RPR Gent, afdeling Dendermonde</span>
   </div>
   <div class="footer-row">
-    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude</a> van Anthropic.</span>
+    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude AI</a></span>
     <span class="footer-dot">·</span>
     <span>Laatste update: <span id="lastCommitDate">laden...</span></span>
   </div>
