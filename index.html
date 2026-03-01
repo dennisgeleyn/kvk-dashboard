@@ -470,6 +470,10 @@
   <div class="logo">KVK <em>dashboard</em></div>
   <div class="header-right">
     <div class="live-badge"><span class="live-dot"></span> Live data</div>
+    <a href="https://status.stamhoofd.app/nl" target="_blank" id="stamhoofdStatus" title="Stamhoofd systeemstatus" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.7rem;text-decoration:none;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:0.25rem 0.6rem;cursor:pointer">
+      <span id="statusDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block;flex-shrink:0"></span>
+      <span id="statusLabel">Stamhoofd...</span>
+    </a>
     <div class="header-date" id="liveDate"></div>
   </div>
 </header>
@@ -1133,6 +1137,32 @@ async function checkAdminPw() {
   }
 }
 
+// ─── STAMHOOFD STATUS ─────────────────────────────────────
+async function fetchStamhoofdStatus() {
+  try {
+    const res = await fetch('https://status.stamhoofd.app/nl', { cache: 'no-store' });
+    const text = await res.text();
+    const dot = document.getElementById('statusDot');
+    const label = document.getElementById('statusLabel');
+    // Parse the overall status from the page heading
+    if (text.includes('Alle services zijn online')) {
+      dot.style.background = 'var(--green)';
+      label.textContent = 'Stamhoofd online';
+    } else if (text.includes('gedeeltelijke storing') || text.includes('Gedeeltelijke storing')) {
+      dot.style.background = 'var(--gold)';
+      label.textContent = 'Gedeeltelijke storing';
+    } else if (text.includes('storing') || text.includes('Storing') || text.includes('Uitvaltijd')) {
+      dot.style.background = 'var(--red)';
+      label.textContent = 'Storing gedetecteerd';
+    } else {
+      dot.style.background = 'var(--muted)';
+      label.textContent = 'Status onbekend';
+    }
+  } catch(e) {
+    document.getElementById('statusLabel').textContent = 'Status onbekend';
+  }
+}
+
 // ─── INIT ─────────────────────────────────────────────────
 document.getElementById('liveDate').textContent = new Date().toLocaleDateString('nl-BE', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -1142,6 +1172,8 @@ loadData();
 
 // Auto-refresh every 5 minutes
 setInterval(loadData, 5 * 60 * 1000);
+fetchStamhoofdStatus();
+setInterval(fetchStamhoofdStatus, 5 * 60 * 1000);
 </script>
 </body>
 </html>
