@@ -229,29 +229,32 @@ export default {
         requests.push({ id: Date.now().toString(), name, email: emailNorm, emailHash, displayEmail, ts: new Date().toISOString() });
         await kvSet(env, 'requests', requests);
 
-        // Notify admin
+        // Notify admin — must be awaited, unawaited fetches are killed when Worker returns
+        let emailError = null;
         if (env.RESEND_API_KEY && env.NOTIFY_TO) {
-          sendEmail(env, {
-            to: env.NOTIFY_TO,
-            subject: 'KVK Dashboard — nieuwe toegangsaanvraag',
-            html: `
-              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
-                <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
-                <p>Nieuwe toegangsaanvraag:</p>
-                <table>
-                  <tr><td style="padding:4px 16px 4px 0;color:#666">Naam</td><td><strong>${name}</strong></td></tr>
-                  <tr><td style="padding:4px 16px 4px 0;color:#666">E-mail</td><td>${displayEmail}</td></tr>
-                  <tr><td style="padding:4px 16px 4px 0;color:#666">Tijdstip</td><td>${new Date().toLocaleString('nl-BE')}</td></tr>
-                </table>
-                <p style="margin-top:1.5rem">
-                  <a href="${DASHBOARD_URL}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none">Open dashboard</a>
-                </p>
-                <p style="color:#999;font-size:0.75rem">Log in als beheerder → ⚙ Instellingen → Gebruikersbeheer.</p>
-              </div>`
-          }).catch(() => {});
+          try {
+            await sendEmail(env, {
+              to: env.NOTIFY_TO,
+              subject: 'KVK Dashboard — nieuwe toegangsaanvraag',
+              html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
+                  <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
+                  <p>Nieuwe toegangsaanvraag:</p>
+                  <table>
+                    <tr><td style="padding:4px 16px 4px 0;color:#666">Naam</td><td><strong>${name}</strong></td></tr>
+                    <tr><td style="padding:4px 16px 4px 0;color:#666">E-mail</td><td>${displayEmail}</td></tr>
+                    <tr><td style="padding:4px 16px 4px 0;color:#666">Tijdstip</td><td>${new Date().toLocaleString('nl-BE')}</td></tr>
+                  </table>
+                  <p style="margin-top:1.5rem">
+                    <a href="${DASHBOARD_URL}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none">Open dashboard</a>
+                  </p>
+                  <p style="color:#999;font-size:0.75rem">Log in als beheerder → ⚙ Instellingen → Gebruikersbeheer.</p>
+                </div>`
+            });
+          } catch(e) { emailError = e.message; }
         }
 
-        return json({ ok: true });
+        return json({ ok: true, emailError });
       } catch(e) { return fail('Bad request: ' + e.message); }
     }
 
