@@ -54,7 +54,7 @@ async function sendEmail(env, { to, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, html })
+    body: JSON.stringify({ from, to: [to], subject, html, track_clicks: false, track_opens: false })
   });
   if (!res.ok) {
     const txt = await res.text();
