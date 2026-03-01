@@ -1465,13 +1465,11 @@ async function doLogin() {
   if (btn) { btn.disabled = true; btn.textContent = 'Versturen...'; }
 
   try {
-    const res = await workerFetch('/magic/request', { method: 'POST', body: JSON.stringify({ email }) });
+    const res  = await workerFetch('/magic/request', { method: 'POST', body: JSON.stringify({ email }) });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       errEl.textContent = 'Fout bij versturen: ' + (data.error || res.status);
-      recordFailedAttempt({ textContent: '' }); // count attempt silently
     } else {
-      // Always show success to avoid email enumeration
       errEl.textContent = '';
       if (okEl) okEl.textContent = 'Als dit adres toegang heeft, ontvang je een inloglink in je inbox.';
       document.getElementById('loginEmail').value = '';
