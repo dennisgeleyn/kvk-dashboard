@@ -69,10 +69,8 @@ function magicLinkEmail(dashboardUrl, token, name) {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
       <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
-      ${name ? `<p>Hallo ${name},</p><p>Je toegang is goedgekeurd! Klik op de knop hieronder om in te loggen.</p>` : '<p>Klik op de knop hieronder om in te loggen op het KVK Dashboard.</p>'}
-      <p style="margin:1.5rem 0">
-        <a href="${link}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none;font-size:0.9rem;font-weight:500">Inloggen op dashboard</a>
-      </p>
+      ${name ? `<p>Hallo ${name},</p><p>Je toegang is goedgekeurd! Kopieer de link hieronder en plak deze in je browser om in te loggen.</p>` : '<p>Kopieer de link hieronder en plak deze in je browser om in te loggen op het KVK Dashboard.</p>'}
+      <p style="margin:1.5rem 0;background:#f5f3ee;padding:1rem;word-break:break-all;font-size:0.8rem;color:#333;border-left:3px solid #c9a84c">${link}</p>
       <p style="color:#999;font-size:0.75rem">Deze link is 15 minuten geldig en kan maar één keer gebruikt worden.<br>Als je deze e-mail niet verwacht had, kun je hem negeren.</p>
     </div>`;
 }
