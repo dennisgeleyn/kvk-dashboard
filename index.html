@@ -1673,10 +1673,60 @@ async function revokeUser(emailHash) {
 
 function openAdminOverlay() {
   if (isAdmin()) { toggleConfig(); return; }
+  // If login overlay is still visible, show the inline admin form inside it
+  const loginOverlay = document.getElementById('loginOverlay');
+  if (loginOverlay && loginOverlay.style.display !== 'none') {
+    showAdminLoginForm();
+    return;
+  }
+  // Otherwise use the standalone overlay (e.g. from toolbar button)
   document.getElementById('adminOverlay').style.display = 'flex';
   document.getElementById('adminPwInput').value = '';
   document.getElementById('adminPwError').style.display = 'none';
   setTimeout(() => document.getElementById('adminPwInput').focus(), 50);
+}
+
+function showAdminLoginForm() {
+  document.getElementById('loginForm').style.display    = 'none';
+  document.getElementById('requestForm').style.display  = 'none';
+  document.getElementById('adminLoginForm').style.display = '';
+  document.getElementById('adminLoginPw').value = '';
+  document.getElementById('adminLoginError').textContent = '';
+  setTimeout(() => document.getElementById('adminLoginPw').focus(), 50);
+}
+
+function showLoginForm() {
+  document.getElementById('adminLoginForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('loginEmail').value = '';
+}
+
+async function doAdminLogin() {
+  const pw    = document.getElementById('adminLoginPw').value;
+  const errEl = document.getElementById('adminLoginError');
+  errEl.textContent = '';
+  if (!pw) { errEl.textContent = 'Vul het wachtwoord in.'; return; }
+  if (checkLockout(errEl)) return;
+
+  const btn = document.querySelector('#adminLoginForm .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Bezig...'; }
+
+  try {
+    const res = await workerFetch('/auth', { method: 'POST', body: JSON.stringify({ password: pw }) });
+    if (res.ok) {
+      clearLockout();
+      sessionStorage.setItem('kvk_admin_token', pw);
+      hideLoginOverlay();
+      return;
+    }
+  } catch(e) {
+    errEl.textContent = 'Netwerkfout: ' + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = 'Inloggen als beheerder'; }
+    return;
+  }
+
+  recordFailedAttempt(errEl);
+  if (btn) { btn.disabled = false; btn.textContent = 'Inloggen als beheerder'; }
 }
 
 function closeAdminOverlay() {
@@ -1807,6 +1857,19 @@ function doLogout() {
       <div class="login-success" id="loginSuccess"></div>
       <button class="login-btn" onclick="doLogin()">Stuur inloglink</button>
       <p style="font-size:0.68rem;color:var(--muted);margin-top:0.75rem;text-align:center">Je ontvangt een link per e-mail om in te loggen — geen wachtwoord nodig.</p>
+    </div>
+
+    <!-- Admin password form (shown when email is 'admin' or 'beheerder') -->
+    <div id="adminLoginForm" style="display:none">
+      <div class="login-field">
+        <label>Beheerder wachtwoord</label>
+        <input type="password" id="adminLoginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()">
+      </div>
+      <div class="login-error" id="adminLoginError"></div>
+      <button class="login-btn" onclick="doAdminLogin()">Inloggen als beheerder</button>
+      <p style="font-size:0.68rem;color:var(--muted);margin-top:0.75rem;text-align:center">
+        <a href="#" onclick="showLoginForm()" style="color:var(--muted)">← Terug</a>
+      </p>
     </div>
 
     <!-- Request access form -->
