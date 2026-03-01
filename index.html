@@ -1559,13 +1559,24 @@ async function doRequestAccess() {
     // Store name and a display hint (first 3 chars + domain) but NOT the full email
     const [localPart, domain] = email.split('@');
     const displayEmail = localPart.slice(0, 3) + '***@' + domain;
-    requests.push({ id: Date.now().toString(), name, emailHash, displayEmail, ts: new Date().toISOString() });
+    const newReq = { id: Date.now().toString(), name, emailHash, displayEmail, ts: new Date().toISOString() };
+    requests.push(newReq);
     await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
+
+    // Notify admin via Worker (fire and forget — don't block UX on email success)
+    if (CONFIG.proxyUrl) {
+      fetch(CONFIG.proxyUrl + '/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, displayEmail })
+      }).catch(() => {}); // silently ignore if email fails
+    }
+
     okEl.textContent = 'Aanvraag verzonden! De beheerder geeft je toegang.';
     document.getElementById('reqName').value  = '';
     document.getElementById('reqEmail').value = '';
   } catch(e) {
-    errEl.textContent = 'Kon aanvraag niet opslaan. Probeer opnieuw.';
+    errEl.textContent = 'Fout: ' + (e && e.message ? e.message : String(e));
   }
 }
 
