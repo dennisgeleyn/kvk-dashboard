@@ -1,0 +1,7 @@
+name = "stamhoofd-proxy"
+main = "stamhoofd-proxy-worker.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "KVK_STORE"
+id = "ca9d64387ffd48a4aa6e1f2d437e6248"
