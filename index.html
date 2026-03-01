@@ -1050,11 +1050,10 @@ function renderWeekChart(orders, getCreatedAt, getItems) {
   });
 
   const sorted = Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]));
-  document.getElementById('weekChartMeta').textContent = sorted.length + ' weken — ' + counts.reduce(function(a,b){return a+b;},0) + ' tickets totaal';
-
   const W = 800, H = 200, PL = 36, PR = 10, PT = 10, PB = 30;
   const cW = W - PL - PR, cH = H - PT - PB;
   const counts = sorted.map(function(e) { return e[1]; });
+  document.getElementById('weekChartMeta').textContent = sorted.length + ' weken — ' + counts.reduce(function(a,b){return a+b;},0) + ' tickets totaal';
   const maxVal = Math.max.apply(null, counts.concat([1]));
   const n = sorted.length;
   const barW = Math.max(6, Math.min(40, (cW / n) - 4));
