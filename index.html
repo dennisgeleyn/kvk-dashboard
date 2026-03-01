@@ -841,7 +841,7 @@ function renderShows(webshop, orders) {
 
     const avail = used >= 234
       ? { label: 'Uitverkocht', color: '#b83232', bg: '#fad7d7' }
-      : used >= 194
+      : used >= 191
         ? { label: 'Laatste kaarten', color: '#8b6914', bg: '#f5e9c0' }
         : { label: 'Vrij', color: '#2e7d52', bg: '#d4edde' };
 
@@ -1181,27 +1181,40 @@ async function checkAdminPw() {
 async function fetchStamhoofdStatus() {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
-  try {
-    const fetchUrl = proxied('https://status.stamhoofd.app/nl', false);
-    const res = await fetch(fetchUrl, { cache: 'no-store' });
-    const text = await res.text();
-    if (text.includes('Alle services zijn online')) {
-      dot.style.background = 'var(--green)';
-      label.textContent = 'Stamhoofd online';
-    } else if (text.includes('gedeeltelijke storing') || text.includes('Gedeeltelijke storing')) {
-      dot.style.background = 'var(--gold)';
-      label.textContent = 'Gedeeltelijke storing';
-    } else if (text.includes('storing') || text.includes('Storing') || text.includes('Uitvaltijd')) {
-      dot.style.background = 'var(--red)';
-      label.textContent = 'Storing gedetecteerd';
-    } else {
-      dot.style.background = 'var(--muted)';
-      label.textContent = 'Status onbekend';
-    }
-  } catch(e) {
-    dot.style.background = 'var(--muted)';
-    label.textContent = 'Status onbekend';
+  // Try fetching through proxy first, fall back to direct no-cors ping
+  const urls = [
+    proxied('https://status.stamhoofd.app/nl', false),
+    'https://status.stamhoofd.app/nl'
+  ];
+  for (const url of urls) {
+    try {
+      const isCors = url.includes('workers.dev');
+      const res = await fetch(url, { cache: 'no-store', mode: isCors ? 'cors' : 'no-cors' });
+      // no-cors responses are opaque (status 0) — we can only tell it reached the server
+      if (!isCors) {
+        dot.style.background = 'var(--green)';
+        label.textContent = 'Stamhoofd online';
+        return;
+      }
+      const text = await res.text();
+      if (text.includes('Alle services zijn online')) {
+        dot.style.background = 'var(--green)';
+        label.textContent = 'Stamhoofd online';
+      } else if (text.includes('gedeeltelijke storing') || text.includes('Gedeeltelijke storing')) {
+        dot.style.background = 'var(--gold)';
+        label.textContent = 'Gedeeltelijke storing';
+      } else if (text.includes('Uitvaltijd') || text.includes('Storing')) {
+        dot.style.background = 'var(--red)';
+        label.textContent = 'Storing gedetecteerd';
+      } else {
+        dot.style.background = 'var(--green)';
+        label.textContent = 'Stamhoofd online';
+      }
+      return;
+    } catch(e) { /* try next */ }
   }
+  dot.style.background = 'var(--muted)';
+  label.textContent = 'Status onbekend';
 }
 
 // ─── INIT ─────────────────────────────────────────────────
