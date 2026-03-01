@@ -690,11 +690,13 @@ async function fetchAllOrders() {
   let lastId = null;
 
   while (true) {
-    const url = new URL(proxied(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`));
-    url.searchParams.set('updatedSince', updatedSince);
-    if (lastId) url.searchParams.set('lastId', lastId);
+    // Build inner Stamhoofd URL with pagination params BEFORE wrapping in proxy
+    const inner = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
+    inner.searchParams.set('updatedSince', updatedSince);
+    if (lastId) inner.searchParams.set('lastId', lastId);
+    const fetchUrl = proxied(inner.toString());
 
-    const res = await fetchWithTimeout(url.toString(), { headers: headers() }, 15000);
+    const res = await fetchWithTimeout(fetchUrl, { headers: headers() }, 15000);
     if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
     const page = await res.json();
 
