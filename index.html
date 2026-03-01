@@ -672,6 +672,17 @@ function saveConfig() {
 // ─── DATA LOADING ─────────────────────────────────────────
 
 // Fetch ALL orders — deduplicated by order ID
+async function fetchWithTimeout(url, options, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchAllOrders() {
   const seenIds = new Set();
   let allOrders = [];
@@ -683,7 +694,7 @@ async function fetchAllOrders() {
     url.searchParams.set('updatedSince', updatedSince);
     if (lastId) url.searchParams.set('lastId', lastId);
 
-    const res = await fetch(url.toString(), { headers: headers() });
+    const res = await fetchWithTimeout(url.toString(), { headers: headers() }, 15000);
     if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
     const page = await res.json();
 
@@ -707,7 +718,7 @@ async function fetchAllOrders() {
       }
     }
 
-    setStatus(`⏳ ${allOrders.length} bestellingen geladen...`, 'loading');
+    setStatus('⏳ ' + allOrders.length + ' bestellingen geladen...', 'loading');
 
     // If ALL items on this page were duplicates, we've looped — stop
     if (newItems === 0) break;
@@ -721,8 +732,7 @@ async function fetchAllOrders() {
 
     lastId = nextLastId;
     updatedSince = nextUpdatedSince;
-
-    await new Promise(r => setTimeout(r, 250));
+    // No delay — avoid mobile browser killing the script mid-loop
   }
 
   logDebug('=== TOTAL UNIQUE ORDERS FETCHED: ' + allOrders.length + ' ===');
@@ -738,7 +748,9 @@ async function fetchWebshop() {
 async function loadData() {
   setStatus('⏳ Data ophalen van Stamhoofd...', 'loading');
   try {
-    const [orders, webshop] = await Promise.all([fetchAllOrders(), fetchWebshop()]);
+    // Load sequentially on mobile to avoid memory pressure
+    const orders = await fetchAllOrders();
+    const webshop = await fetchWebshop();
     renderDashboard(orders, webshop);
     setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + orders.length + ' bestellingen geladen', 'success');
   } catch (err) {
