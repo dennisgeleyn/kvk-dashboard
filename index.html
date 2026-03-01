@@ -1800,24 +1800,24 @@ async function fetchStamhoofdStatus() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
-document.getElementById('liveDate').textContent = new Date().toLocaleDateString('nl-BE', {
-  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-});
+document.addEventListener('DOMContentLoaded', async function() {
 
-// Check for existing session; if none, login overlay stays visible
-// Check for existing session; if none, login overlay stays visible
-checkSession();
+  document.getElementById('liveDate').textContent = new Date().toLocaleDateString('nl-BE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
 
-// Auto-refresh every 5 minutes (only fires if logged in, since loadData is called from hideLoginOverlay)
-setInterval(function() { if (getSession()) { loadData(); fetchStamhoofdStatus(); } }, 5 * 60 * 1000);
+  // Check for existing session; if none, login overlay stays visible
+  await checkSession();
 
-// Fetch latest GitHub commit date
-async function fetchCommitDate() {
+  // Auto-refresh every 5 minutes
+  setInterval(function() { if (getSession()) { loadData(); fetchStamhoofdStatus(); } }, 5 * 60 * 1000);
+
+  // Fetch latest GitHub commit date
   try {
-    const res = await fetch('https://api.github.com/repos/dennisgeleyn/kvk-dashboard/commits?per_page=1');
+    const res  = await fetch('https://api.github.com/repos/dennisgeleyn/kvk-dashboard/commits?per_page=1');
     const data = await res.json();
     const date = new Date(data[0].commit.committer.date);
-    const el = document.getElementById('lastCommitDate');
+    const el   = document.getElementById('lastCommitDate');
     if (el) el.textContent = date.toLocaleString('nl-BE', {
       day: 'numeric', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
@@ -1826,8 +1826,8 @@ async function fetchCommitDate() {
     const el = document.getElementById('lastCommitDate');
     if (el) el.textContent = 'onbekend';
   }
-}
-fetchCommitDate();
+
+});
 
 // Logout function
 function doLogout() {
