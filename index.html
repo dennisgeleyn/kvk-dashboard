@@ -1451,14 +1451,15 @@ async function doLogin() {
   if (okEl) okEl.textContent = '';
 
   if (!email) { errEl.textContent = 'Vul je e-mailadres in.'; return; }
-  if (!email.includes('@')) { errEl.textContent = 'Ongeldig e-mailadres.'; return; }
-  if (checkLockout(errEl)) return;
 
-  // Admin: special case — redirect to password prompt
+  // Admin: special case — redirect to password prompt (before email format check)
   if (email === 'admin' || email === 'beheerder') {
     openAdminOverlay();
     return;
   }
+
+  if (!email.includes('@')) { errEl.textContent = 'Ongeldig e-mailadres.'; return; }
+  if (checkLockout(errEl)) return;
 
   const btn = document.querySelector('#loginForm .login-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Versturen...'; }
