@@ -1674,8 +1674,9 @@ async function revokeUser(emailHash) {
 function openAdminOverlay() {
   if (isAdmin()) { toggleConfig(); return; }
   // If login overlay is still visible, show the inline admin form inside it
+  // (check offsetParent/offsetHeight rather than inline style, which may be unset)
   const loginOverlay = document.getElementById('loginOverlay');
-  if (loginOverlay && loginOverlay.style.display !== 'none') {
+  if (loginOverlay && loginOverlay.offsetHeight > 0) {
     showAdminLoginForm();
     return;
   }
