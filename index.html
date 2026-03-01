@@ -1582,7 +1582,9 @@ async function doLogout() {
   }
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('kvk_admin_token');
+  clearLockout();
   location.reload();
+}
 }
 
 // ─── USER MANAGEMENT (admin) ──────────────────────────────
@@ -1829,12 +1831,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 });
 
-// Logout function
-function doLogout() {
-  localStorage.removeItem(SESSION_KEY);
-  clearLockout();
-  location.reload();
-}
+
 </script>
 
 <!-- LOGIN OVERLAY -->
