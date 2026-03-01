@@ -448,6 +448,95 @@
     th:nth-child(5), td:nth-child(5) { display: none; }
   }
 
+
+  /* ── LOGIN OVERLAY ─────────────────────────────────────── */
+  #loginOverlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2.5rem 2rem;
+    width: 100%; max-width: 400px;
+  }
+
+  .login-logo {
+    font-size: 1.1rem; font-weight: 600; color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .login-sub {
+    font-size: 0.72rem; color: var(--muted);
+    margin-bottom: 2rem;
+  }
+
+  .login-tab-row {
+    display: flex; gap: 0; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .login-tab {
+    padding: 0.4rem 1rem; font-size: 0.75rem; cursor: pointer;
+    color: var(--muted); background: none; border: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+
+  .login-tab.active { color: var(--text); border-bottom-color: var(--gold); font-weight: 500; }
+
+  .login-field { margin-bottom: 1rem; }
+  .login-field label { display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .login-field input {
+    width: 100%; padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border); background: var(--surface2);
+    font-family: inherit; font-size: 0.82rem; color: var(--text);
+  }
+  .login-field input:focus { outline: none; border-color: var(--gold); }
+
+  .login-error { color: var(--red); font-size: 0.7rem; margin-bottom: 0.75rem; min-height: 1rem; }
+  .login-success { color: var(--green); font-size: 0.7rem; margin-bottom: 0.75rem; min-height: 1rem; }
+
+  .login-btn {
+    width: 100%; padding: 0.6rem; background: var(--gold); color: #fff;
+    border: none; font-family: inherit; font-size: 0.82rem;
+    font-weight: 500; cursor: pointer;
+  }
+  .login-btn:hover { opacity: 0.9; }
+
+  /* ── USER MANAGEMENT (admin panel) ─────────────────────── */
+  .user-mgmt { margin-top: 1.5rem; }
+  .user-mgmt-title { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
+  .user-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.72rem;
+  }
+  .user-row:last-child { border-bottom: none; }
+  .user-info { flex: 1; }
+  .user-name { font-weight: 500; color: var(--text); }
+  .user-email { color: var(--muted); }
+  .user-status-pill {
+    font-size: 0.6rem; font-weight: 600; padding: 0.1rem 0.4rem;
+    border-radius: 2px; white-space: nowrap;
+  }
+  .pill-pending { background: #f5e9c0; color: #8b6914; }
+  .pill-active  { background: #d4edde; color: #2e7d52; }
+  .user-actions { display: flex; gap: 0.3rem; }
+  .user-btn {
+    padding: 0.2rem 0.5rem; font-size: 0.65rem; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2);
+    font-family: inherit; color: var(--text);
+  }
+  .user-btn:hover { background: var(--border); }
+  .user-btn.danger { color: var(--red); border-color: var(--red); }
+  .user-btn.danger:hover { background: #fad7d7; }
+  .approve-pw { width: 100px; }
+
+  .empty-users { font-size: 0.72rem; color: var(--muted); padding: 0.5rem 0; }
+
   footer {
     margin-top: 1px;
     padding: 1.5rem 2rem;
@@ -468,7 +557,96 @@
   .footer-dot { color: var(--border); }
 
   @media (max-width: 800px) {
-    footer { padding: 1.25rem 1rem; }
+  
+  /* ── LOGIN OVERLAY ─────────────────────────────────────── */
+  #loginOverlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2.5rem 2rem;
+    width: 100%; max-width: 400px;
+  }
+
+  .login-logo {
+    font-size: 1.1rem; font-weight: 600; color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .login-sub {
+    font-size: 0.72rem; color: var(--muted);
+    margin-bottom: 2rem;
+  }
+
+  .login-tab-row {
+    display: flex; gap: 0; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .login-tab {
+    padding: 0.4rem 1rem; font-size: 0.75rem; cursor: pointer;
+    color: var(--muted); background: none; border: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+
+  .login-tab.active { color: var(--text); border-bottom-color: var(--gold); font-weight: 500; }
+
+  .login-field { margin-bottom: 1rem; }
+  .login-field label { display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .login-field input {
+    width: 100%; padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border); background: var(--surface2);
+    font-family: inherit; font-size: 0.82rem; color: var(--text);
+  }
+  .login-field input:focus { outline: none; border-color: var(--gold); }
+
+  .login-error { color: var(--red); font-size: 0.7rem; margin-bottom: 0.75rem; min-height: 1rem; }
+  .login-success { color: var(--green); font-size: 0.7rem; margin-bottom: 0.75rem; min-height: 1rem; }
+
+  .login-btn {
+    width: 100%; padding: 0.6rem; background: var(--gold); color: #fff;
+    border: none; font-family: inherit; font-size: 0.82rem;
+    font-weight: 500; cursor: pointer;
+  }
+  .login-btn:hover { opacity: 0.9; }
+
+  /* ── USER MANAGEMENT (admin panel) ─────────────────────── */
+  .user-mgmt { margin-top: 1.5rem; }
+  .user-mgmt-title { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
+  .user-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.72rem;
+  }
+  .user-row:last-child { border-bottom: none; }
+  .user-info { flex: 1; }
+  .user-name { font-weight: 500; color: var(--text); }
+  .user-email { color: var(--muted); }
+  .user-status-pill {
+    font-size: 0.6rem; font-weight: 600; padding: 0.1rem 0.4rem;
+    border-radius: 2px; white-space: nowrap;
+  }
+  .pill-pending { background: #f5e9c0; color: #8b6914; }
+  .pill-active  { background: #d4edde; color: #2e7d52; }
+  .user-actions { display: flex; gap: 0.3rem; }
+  .user-btn {
+    padding: 0.2rem 0.5rem; font-size: 0.65rem; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2);
+    font-family: inherit; color: var(--text);
+  }
+  .user-btn:hover { background: var(--border); }
+  .user-btn.danger { color: var(--red); border-color: var(--red); }
+  .user-btn.danger:hover { background: #fad7d7; }
+  .approve-pw { width: 100px; }
+
+  .empty-users { font-size: 0.72rem; color: var(--muted); padding: 0.5rem 0; }
+
+  footer { padding: 1.25rem 1rem; }
   }
 </style>
 </head>
@@ -516,10 +694,6 @@
       <input type="text" id="cfgWebshopId" placeholder="uuid...">
     </div>
     <div class="config-field">
-      <label>API Key</label>
-      <input type="password" id="cfgApiKey" placeholder="••••••••">
-    </div>
-    <div class="config-field">
       <label>Proxy URL (voor GitHub Pages)</label>
       <input type="text" id="cfgProxyUrl" placeholder="https://stamhoofd-proxy.yourname.workers.dev">
     </div>
@@ -527,6 +701,11 @@
   <div class="config-actions">
     <button class="btn btn-primary" onclick="saveConfig()">Opslaan & Vernieuwen</button>
     <button class="btn" onclick="toggleConfig()">Annuleren</button>
+  </div>
+
+  <div class="user-mgmt">
+    <div class="user-mgmt-title">Gebruikersbeheer</div>
+    <div id="userList"><div class="empty-users">Laden...</div></div>
   </div>
 </div>
 
@@ -609,7 +788,7 @@
 const DEFAULTS = {
   orgId: 'd42b36a2-a20f-4930-b677-5d62599c90b3',
   webshopId: '07e841fb-25a0-478d-a1a4-4d09df824938',
-  apiKey: 'O1SP0SDFTQPAS2R0GOLNX/NWRLVL4URW7R80KUZBCYGQNS8XPLTD2X2+BZXAJJY3I7YKNOMRMOSS+DABBE9IBHBLSTNMO++V/J0QLQSV45SIUULKQ/T+HOIJ2CCE0IW6ACFC0N6E2MMJJKL12AEVZVPS+VK2FCA1IBK/MIDFO/GJPLHWBD+WA4BOD9YENPJKZSDJW6PR9IA7THKOUUZMHHGEERM8A8OXIJGCBAOFN7MHLTT1YXWQFI+YMFUY0IBF',
+
   capacity: 239,
   // After deploying the Cloudflare Worker, paste its URL here
   // e.g. 'https://stamhoofd-proxy.yourname.workers.dev'
@@ -626,17 +805,15 @@ function apiBase() {
 }
 
 // Wraps a URL through the CORS proxy if one is configured
-// Passes apiKey as query param since Cloudflare strips Authorization headers on subrequests
-function proxied(url, withAuth) {
+function proxied(url) {
   if (CONFIG.proxyUrl) {
-    const base = CONFIG.proxyUrl + '/proxy?url=' + encodeURIComponent(url);
-    return (withAuth !== false) ? base + '&apiKey=' + encodeURIComponent(CONFIG.apiKey) : base;
+    return CONFIG.proxyUrl + '/proxy?url=' + encodeURIComponent(url);
   }
   return url;
 }
 
 function headers() {
-  return { 'Authorization': `Bearer ${CONFIG.apiKey}`, 'Content-Type': 'application/json' };
+  return { 'Content-Type': 'application/json' };
 }
 
 // ─── UI HELPERS ───────────────────────────────────────────
@@ -671,21 +848,19 @@ function toggleConfig() {
   if (visible) {
     document.getElementById('cfgOrgId').value = CONFIG.orgId;
     document.getElementById('cfgWebshopId').value = CONFIG.webshopId;
-    document.getElementById('cfgApiKey').value = CONFIG.apiKey;
     document.getElementById('cfgProxyUrl').value = CONFIG.proxyUrl || '';
+    renderUserList();
   }
 }
 
 function saveConfig() {
   CONFIG.orgId = document.getElementById('cfgOrgId').value.trim();
   CONFIG.webshopId = document.getElementById('cfgWebshopId').value.trim();
-  CONFIG.apiKey = document.getElementById('cfgApiKey').value.trim();
   CONFIG.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
   // Persist to localStorage so settings survive page reloads
   localStorage.setItem('theatre_dashboard_config', JSON.stringify({
     orgId: CONFIG.orgId,
     webshopId: CONFIG.webshopId,
-    apiKey: CONFIG.apiKey,
     proxyUrl: CONFIG.proxyUrl,
   }));
   toggleConfig();
@@ -878,7 +1053,7 @@ function renderShows(webshop, orders) {
 
     const avail = used >= 234
       ? { label: 'Uitverkocht', color: '#b83232', bg: '#fad7d7' }
-      : used >= 194
+      : used >= 191
         ? { label: 'Laatste kaarten', color: '#8b6914', bg: '#f5e9c0' }
         : { label: 'Vrij', color: '#2e7d52', bg: '#d4edde' };
 
@@ -1177,6 +1352,207 @@ function renderFallback() {
   document.getElementById('orderTable').innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen data beschikbaar</div></td></tr>';
 }
 
+
+// ─── AUTH & USER MANAGEMENT ───────────────────────────────
+
+// Storage keys
+const USERS_KEY = 'kvk_users';        // shared: approved users {email, nameHash, pwHash}
+const REQUESTS_KEY = 'kvk_requests';  // shared: pending requests {id, name, email, ts}
+const SESSION_KEY = 'kvk_session';    // sessionStorage: logged-in email
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function switchLoginTab(tab) {
+  document.getElementById('loginForm').style.display   = tab === 'login'   ? '' : 'none';
+  document.getElementById('requestForm').style.display = tab === 'request' ? '' : 'none';
+  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+  document.getElementById('tabRequest').classList.toggle('active', tab === 'request');
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('reqError').textContent   = '';
+  document.getElementById('reqSuccess').textContent = '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pw    = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+
+  if (!email || !pw) { errEl.textContent = 'Vul je e-mailadres en wachtwoord in.'; return; }
+
+  // Check admin (uses existing ADMIN_HASH)
+  const pwHash = await sha256(pw);
+  if (email === 'admin' || email === 'beheerder') {
+    if (pwHash === ADMIN_HASH) {
+      sessionStorage.setItem(SESSION_KEY, '__admin__');
+      hideLoginOverlay();
+      return;
+    }
+  }
+
+  // Check regular users from shared storage
+  try {
+    const result = await window.storage.get(USERS_KEY, true);
+    const users = result ? JSON.parse(result.value) : [];
+    const emailHash = await sha256(email);
+    const user = users.find(u => u.emailHash === emailHash);
+    if (user && user.pwHash === pwHash) {
+      sessionStorage.setItem(SESSION_KEY, email);
+      hideLoginOverlay();
+      return;
+    }
+  } catch(e) { /* storage miss is fine */ }
+
+  errEl.textContent = 'Ongeldig e-mailadres of wachtwoord.';
+}
+
+async function doRequestAccess() {
+  const name  = document.getElementById('reqName').value.trim();
+  const email = document.getElementById('reqEmail').value.trim().toLowerCase();
+  const errEl = document.getElementById('reqError');
+  const okEl  = document.getElementById('reqSuccess');
+  errEl.textContent = '';
+  okEl.textContent  = '';
+
+  if (!name || !email) { errEl.textContent = 'Vul je naam en e-mailadres in.'; return; }
+  if (!email.includes('@')) { errEl.textContent = 'Ongeldig e-mailadres.'; return; }
+
+  try {
+    // Load existing requests
+    let requests = [];
+    try {
+      const r = await window.storage.get(REQUESTS_KEY, true);
+      if (r) requests = JSON.parse(r.value);
+    } catch(e) {}
+
+    // Check for duplicate
+    if (requests.find(r => r.email === email)) {
+      okEl.textContent = 'Je aanvraag is al ingediend. De beheerder neemt contact op.';
+      return;
+    }
+
+    requests.push({ id: Date.now().toString(), name, email, ts: new Date().toISOString() });
+    await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
+    okEl.textContent = 'Aanvraag verzonden! De beheerder geeft je toegang.';
+    document.getElementById('reqName').value  = '';
+    document.getElementById('reqEmail').value = '';
+  } catch(e) {
+    errEl.textContent = 'Kon aanvraag niet opslaan. Probeer opnieuw.';
+  }
+}
+
+function hideLoginOverlay() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  loadData();
+  fetchStamhoofdStatus();
+}
+
+function checkSession() {
+  if (sessionStorage.getItem(SESSION_KEY)) {
+    hideLoginOverlay();
+  }
+  // Otherwise login overlay stays visible
+}
+
+// ─── USER MANAGEMENT (admin) ──────────────────────────────
+
+async function renderUserList() {
+  const el = document.getElementById('userList');
+  if (!el) return;
+
+  let requests = [], users = [];
+  try {
+    const r = await window.storage.get(REQUESTS_KEY, true);
+    if (r) requests = JSON.parse(r.value);
+  } catch(e) {}
+  try {
+    const r = await window.storage.get(USERS_KEY, true);
+    if (r) users = JSON.parse(r.value);
+  } catch(e) {}
+
+  let html = '';
+
+  if (requests.length) {
+    html += '<div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.4rem">Aanvragen</div>';
+    requests.forEach(req => {
+      html += '<div class="user-row">'
+        + '<div class="user-info"><div class="user-name">' + escHtml(req.name) + '</div><div class="user-email">' + escHtml(req.email) + '</div></div>'
+        + '<span class="user-status-pill pill-pending">In afwachting</span>'
+        + '<div class="user-actions">'
+        + '<input class="user-btn approve-pw" type="text" id="pw_' + req.id + '" placeholder="Wachtwoord">'
+        + '<button class="user-btn" onclick="approveUser(&quot;' + req.id + '&quot;)">Goedkeuren</button>'
+        + '<button class="user-btn danger" onclick="denyUser(&quot;' + req.id + '&quot;)">Weigeren</button>'
+        + '</div></div>';
+    });
+  }
+
+  if (users.length) {
+    html += '<div style="font-size:0.68rem;color:var(--muted);margin:0.75rem 0 0.4rem">Actieve gebruikers</div>';
+    users.forEach(u => {
+      html += '<div class="user-row">'
+        + '<div class="user-info"><div class="user-email">' + escHtml(u.email) + '</div></div>'
+        + '<span class="user-status-pill pill-active">Actief</span>'
+        + '<div class="user-actions">'
+        + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
+        + '</div></div>';
+    });
+  }
+
+  if (!requests.length && !users.length) {
+    html = '<div class="empty-users">Nog geen aanvragen of gebruikers.</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function approveUser(reqId) {
+  const pwInput = document.getElementById('pw_' + reqId);
+  const pw = pwInput ? pwInput.value.trim() : '';
+  if (!pw) { alert('Stel eerst een wachtwoord in voor deze gebruiker.'); return; }
+
+  let requests = [], users = [];
+  try { const r = await window.storage.get(REQUESTS_KEY, true); if (r) requests = JSON.parse(r.value); } catch(e) {}
+  try { const r = await window.storage.get(USERS_KEY, true);    if (r) users    = JSON.parse(r.value); } catch(e) {}
+
+  const req = requests.find(r => r.id === reqId);
+  if (!req) return;
+
+  const emailHash = await sha256(req.email);
+  const pwHash    = await sha256(pw);
+
+  users = users.filter(u => u.emailHash !== emailHash);
+  users.push({ email: req.email, emailHash, pwHash });
+  requests = requests.filter(r => r.id !== reqId);
+
+  await window.storage.set(USERS_KEY,    JSON.stringify(users),    true);
+  await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
+  renderUserList();
+}
+
+async function denyUser(reqId) {
+  let requests = [];
+  try { const r = await window.storage.get(REQUESTS_KEY, true); if (r) requests = JSON.parse(r.value); } catch(e) {}
+  requests = requests.filter(r => r.id !== reqId);
+  await window.storage.set(REQUESTS_KEY, JSON.stringify(requests), true);
+  renderUserList();
+}
+
+async function revokeUser(emailHash) {
+  if (!confirm('Toegang verwijderen voor deze gebruiker?')) return;
+  let users = [];
+  try { const r = await window.storage.get(USERS_KEY, true); if (r) users = JSON.parse(r.value); } catch(e) {}
+  users = users.filter(u => u.emailHash !== emailHash);
+  await window.storage.set(USERS_KEY, JSON.stringify(users), true);
+  renderUserList();
+}
+
 // ─── ADMIN AUTH ───────────────────────────────────────────
 const ADMIN_HASH = '5e89fdaa99c139b301bdbfdcf451bf9160898f862d938fad4edc2b1d3fac7f9f';
 
@@ -1259,12 +1635,11 @@ document.getElementById('liveDate').textContent = new Date().toLocaleDateString(
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
 });
 
-loadData();
+// Check for existing session; if none, login overlay stays visible
+checkSession();
 
-// Auto-refresh every 5 minutes
-setInterval(loadData, 5 * 60 * 1000);
-fetchStamhoofdStatus();
-setInterval(fetchStamhoofdStatus, 5 * 60 * 1000);
+// Auto-refresh every 5 minutes (only fires if logged in, since loadData is called from hideLoginOverlay)
+setInterval(function() { if (sessionStorage.getItem(SESSION_KEY)) { loadData(); fetchStamhoofdStatus(); } }, 5 * 60 * 1000);
 
 // Fetch latest GitHub commit date
 (async function() {
@@ -1282,6 +1657,49 @@ setInterval(fetchStamhoofdStatus, 5 * 60 * 1000);
 })();
 </script>
 
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">🎭 KVK Dashboard</div>
+    <div class="login-sub">Koninklijke Toneelgroep Kunst Veredelt Kieldrecht vzw</div>
+
+    <div class="login-tab-row">
+      <button class="login-tab active" id="tabLogin" onclick="switchLoginTab('login')">Inloggen</button>
+      <button class="login-tab" id="tabRequest" onclick="switchLoginTab('request')">Toegang aanvragen</button>
+    </div>
+
+    <!-- Login form -->
+    <div id="loginForm">
+      <div class="login-field">
+        <label>E-mailadres</label>
+        <input type="email" id="loginEmail" placeholder="naam@voorbeeld.be" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-field">
+        <label>Wachtwoord</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="login-btn" onclick="doLogin()">Inloggen</button>
+    </div>
+
+    <!-- Request access form -->
+    <div id="requestForm" style="display:none">
+      <div class="login-field">
+        <label>Naam</label>
+        <input type="text" id="reqName" placeholder="Voornaam Achternaam">
+      </div>
+      <div class="login-field">
+        <label>E-mailadres</label>
+        <input type="email" id="reqEmail" placeholder="naam@voorbeeld.be">
+      </div>
+      <div class="login-error" id="reqError"></div>
+      <div class="login-success" id="reqSuccess"></div>
+      <button class="login-btn" onclick="doRequestAccess()">Toegang aanvragen</button>
+    </div>
+  </div>
+</div>
+
+
 <footer>
   <div class="footer-row">
     <span>Koninklijke Toneelgroep Kunst Veredelt Kieldrecht vzw</span>
@@ -1293,7 +1711,7 @@ setInterval(fetchStamhoofdStatus, 5 * 60 * 1000);
     <span>RPR Gent, afdeling Dendermonde</span>
   </div>
   <div class="footer-row">
-    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude</a></span>
+    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude AI</a></span>
     <span class="footer-dot">·</span>
     <span>Laatste update: <span id="lastCommitDate">laden...</span></span>
   </div>
