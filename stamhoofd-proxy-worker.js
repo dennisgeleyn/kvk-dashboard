@@ -13,6 +13,7 @@
 //   Variable name: KVK_STORE
 //   Create in: Cloudflare dashboard → Workers & Pages → KV → Create namespace
 //   Bind in:   Worker → Settings → Variables → KV Namespace Bindings
+// v2
 
 const ALLOWED_ORIGIN = '*';
 const ALLOWED_HOSTS  = ['api.stamhoofd.app', 'status.stamhoofd.app'];
