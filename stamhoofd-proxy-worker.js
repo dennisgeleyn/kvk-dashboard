@@ -1,48 +1,79 @@
-// Stamhoofd API CORS Proxy + Auth + User Management — Cloudflare Worker
+// Stamhoofd API CORS Proxy + Magic Link Auth — Cloudflare Worker
 //
 // ── Required secrets ──────────────────────────────────────────────────────────
 //   STAMHOOFD_API_KEY  — your Stamhoofd API key
 //   ADMIN_PASSWORD     — admin password for the dashboard
+//   RESEND_API_KEY     — from resend.com (free: 100 emails/day)
+//   NOTIFY_TO          — your email address (admin notifications)
+//   NOTIFY_FROM        — verified sender, e.g. dashboard@yourdomain.com
+//                        OR use 'onboarding@resend.dev' for testing only
+//   DASHBOARD_URL      — full URL of your dashboard, e.g. https://dennisgeleyn.github.io/kvk-dashboard
 //
 // ── Required KV binding ───────────────────────────────────────────────────────
-//   Create a KV namespace in Cloudflare dashboard → Workers & Pages → KV
-//   Then bind it to this worker: Worker → Settings → Variables → KV Namespace Bindings
-//     Variable name: KVK_STORE  (must be exactly this)
-//
-// ── Optional secrets (email notifications) ────────────────────────────────────
-//   RESEND_API_KEY  — from resend.com (free: 100 emails/day)
-//   NOTIFY_TO       — email to notify on new access requests
-//   NOTIFY_FROM     — sender address ('onboarding@resend.dev' works for testing)
+//   Variable name: KVK_STORE
+//   Create in: Cloudflare dashboard → Workers & Pages → KV → Create namespace
+//   Bind in:   Worker → Settings → Variables → KV Namespace Bindings
 
 const ALLOWED_ORIGIN = '*';
 const ALLOWED_HOSTS  = ['api.stamhoofd.app', 'status.stamhoofd.app'];
+const TOKEN_TTL_MS   = 15 * 60 * 1000; // magic links expire after 15 minutes
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // sessions last 7 days
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  ALLOWED_ORIGIN,
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token',
 };
 
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-  });
-
-const fail = (msg, status = 400) =>
-  new Response(msg, { status, headers: CORS_HEADERS });
+const json  = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+const fail  = (msg,  status = 400) => new Response(msg, { status, headers: CORS_HEADERS });
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// KV helpers
-async function kvGet(env, key)       { try { const v = await env.KVK_STORE.get(key); return v ? JSON.parse(v) : null; } catch(e) { return null; } }
-async function kvSet(env, key, val)  { await env.KVK_STORE.put(key, JSON.stringify(val)); }
+function randomToken(len = 32) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// KV helpers — each entity stored under its own key for efficiency
+async function kvGet(env, key)      { try { const v = await env.KVK_STORE.get(key); return v ? JSON.parse(v) : null; } catch(e) { return null; } }
+async function kvSet(env, key, val) { await env.KVK_STORE.put(key, JSON.stringify(val)); }
+async function kvDel(env, key)      { await env.KVK_STORE.delete(key); }
 
 function adminOk(request, env) {
   return request.headers.get('X-Admin-Token') === env.ADMIN_PASSWORD;
+}
+
+async function sendEmail(env, { to, subject, html }) {
+  if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not set');
+  const from = env.NOTIFY_FROM || 'onboarding@resend.dev';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, html })
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error('Resend error ' + res.status + ': ' + txt);
+  }
+  return true;
+}
+
+function magicLinkEmail(dashboardUrl, token, name) {
+  const link = dashboardUrl + '?token=' + token;
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
+      <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
+      ${name ? `<p>Hallo ${name},</p><p>Je toegang is goedgekeurd! Klik op de knop hieronder om in te loggen.</p>` : '<p>Klik op de knop hieronder om in te loggen op het KVK Dashboard.</p>'}
+      <p style="margin:1.5rem 0">
+        <a href="${link}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none;font-size:0.9rem;font-weight:500">Inloggen op dashboard</a>
+      </p>
+      <p style="color:#999;font-size:0.75rem">Deze link is 15 minuten geldig en kan maar één keer gebruikt worden.<br>Als je deze e-mail niet verwacht had, kun je hem negeren.</p>
+    </div>`;
 }
 
 export default {
@@ -52,10 +83,13 @@ export default {
       return new Response(null, { headers: { ...CORS_HEADERS, 'Access-Control-Max-Age': '86400' } });
     }
 
-    const url = new URL(request.url);
+    const url  = new URL(request.url);
     const path = url.pathname;
+    const DASHBOARD_URL = env.DASHBOARD_URL || 'https://dennisgeleyn.github.io/kvk-dashboard';
 
-    // ── /auth POST — verify admin password ────────────────────────────────────
+    // ════════════════════════════════════════════════════════
+    // /auth POST — admin password check (unchanged)
+    // ════════════════════════════════════════════════════════
     if (path === '/auth' && request.method === 'POST') {
       try {
         const { password } = await request.json();
@@ -64,133 +98,252 @@ export default {
       } catch(e) { return fail('Bad request'); }
     }
 
-    // ── /users GET — list users + pending requests (admin only) ───────────────
-    if (path === '/users' && request.method === 'GET') {
-      if (!adminOk(request, env)) return fail('Unauthorized', 401);
-      const users    = await kvGet(env, 'users')    || [];
-      const requests = await kvGet(env, 'requests') || [];
-      const resets   = (await kvGet(env, 'resets')  || []).filter(r => Date.now() < r.expires);
-      await kvSet(env, 'resets', resets); // prune expired
-      return json({ users, requests, resets });
-    }
-
-    // ── /users/login POST — check user credentials ────────────────────────────
-    if (path === '/users/login' && request.method === 'POST') {
+    // ════════════════════════════════════════════════════════
+    // /magic/request POST — user requests a magic link
+    // Body: { email }
+    // Only sends if email is in the approved users list
+    // ════════════════════════════════════════════════════════
+    if (path === '/magic/request' && request.method === 'POST') {
       try {
-        const { emailHash, pwHash } = await request.json();
-        // Check one-time reset tokens
-        const resets = (await kvGet(env, 'resets') || []).filter(r => Date.now() < r.expires);
-        const reset = resets.find(r => r.emailHash === emailHash && r.pwHash === pwHash);
-        if (reset) {
-          await kvSet(env, 'resets', resets.filter(r => r !== reset));
-          return json({ ok: true, mustChangePassword: true });
-        }
-        // Check regular users
+        const { email } = await request.json();
+        if (!email || !email.includes('@')) return fail('Invalid email');
+
+        const emailHash = await sha256(email.trim().toLowerCase());
         const users = await kvGet(env, 'users') || [];
-        const user = users.find(u => u.emailHash === emailHash && u.pwHash === pwHash);
-        return user ? json({ ok: true, mustChangePassword: false }) : json({ ok: false }, 401);
-      } catch(e) { return fail('Bad request'); }
-    }
+        const user  = users.find(u => u.emailHash === emailHash);
 
-    // ── /users/changepw POST — change own password ────────────────────────────
-    if (path === '/users/changepw' && request.method === 'POST') {
-      try {
-        const { emailHash, oldPwHash, newPwHash } = await request.json();
-        const users = await kvGet(env, 'users') || [];
-        const idx = users.findIndex(u => u.emailHash === emailHash && u.pwHash === oldPwHash);
-        if (idx < 0) return json({ ok: false }, 401);
-        users[idx].pwHash = newPwHash;
-        await kvSet(env, 'users', users);
-        return json({ ok: true });
-      } catch(e) { return fail('Bad request'); }
-    }
+        // Always return ok to avoid email enumeration
+        if (user) {
+          const token    = randomToken();
+          const tokenKey = 'token:' + token;
+          await kvSet(env, tokenKey, { emailHash, expires: Date.now() + TOKEN_TTL_MS });
 
-    // ── /requests POST — submit an access request ─────────────────────────────
-    if (path === '/requests' && request.method === 'POST') {
-      try {
-        const { name, emailHash, displayEmail } = await request.json();
-        if (!name || !emailHash) return fail('Missing fields');
-        const requests = await kvGet(env, 'requests') || [];
-        const users    = await kvGet(env, 'users')    || [];
-        if (requests.find(r => r.emailHash === emailHash)) return json({ ok: false, reason: 'duplicate' });
-        if (users.find(u => u.emailHash === emailHash))    return json({ ok: false, reason: 'already_approved' });
-        requests.push({ id: Date.now().toString(), name, emailHash, displayEmail, ts: new Date().toISOString() });
-        await kvSet(env, 'requests', requests);
-        // Fire-and-forget email notification
-        if (env.RESEND_API_KEY && env.NOTIFY_TO) {
-          fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              from: env.NOTIFY_FROM || 'onboarding@resend.dev',
-              to: [env.NOTIFY_TO],
-              subject: 'KVK Dashboard — nieuwe toegangsaanvraag',
-              html: `<p>Nieuwe aanvraag voor het KVK Dashboard.</p>
-                <table style="font-family:sans-serif;font-size:14px">
-                  <tr><td style="padding:4px 12px 4px 0;color:#666">Naam</td><td><strong>${name}</strong></td></tr>
-                  <tr><td style="padding:4px 12px 4px 0;color:#666">E-mail</td><td>${displayEmail}</td></tr>
-                  <tr><td style="padding:4px 12px 4px 0;color:#666">Tijdstip</td><td>${new Date().toLocaleString('nl-BE')}</td></tr>
-                </table>
-                <p><a href="https://dennisgeleyn.github.io/kvk-dashboard" style="background:#c9a84c;color:#fff;padding:8px 16px;text-decoration:none">Open dashboard</a></p>`
-            })
-          }).catch(() => {});
+          try {
+            await sendEmail(env, {
+              to: email.trim().toLowerCase(),
+              subject: 'KVK Dashboard — jouw inloglink',
+              html: magicLinkEmail(DASHBOARD_URL, token, user.name || '')
+            });
+          } catch(e) {
+            // Clean up token if email fails, and surface the error
+            await kvDel(env, tokenKey);
+            return json({ ok: false, error: e.message }, 502);
+          }
         }
+
         return json({ ok: true });
       } catch(e) { return fail('Bad request: ' + e.message); }
     }
 
-    // ── /requests/:id/approve POST — approve request (admin) ─────────────────
-    if (path.match(/^\/requests\/[^/]+\/approve$/) && request.method === 'POST') {
-      if (!adminOk(request, env)) return fail('Unauthorized', 401);
+    // ════════════════════════════════════════════════════════
+    // /magic/verify POST — exchange token for session
+    // Body: { token }
+    // ════════════════════════════════════════════════════════
+    if (path === '/magic/verify' && request.method === 'POST') {
       try {
-        const reqId = path.split('/')[2];
-        const { pwHash } = await request.json();
-        const requests = await kvGet(env, 'requests') || [];
-        const req = requests.find(r => r.id === reqId);
-        if (!req) return fail('Not found', 404);
-        const users = await kvGet(env, 'users') || [];
-        users.push({ emailHash: req.emailHash, displayEmail: req.displayEmail, pwHash });
-        await kvSet(env, 'users', users);
-        await kvSet(env, 'requests', requests.filter(r => r.id !== reqId));
-        return json({ ok: true });
+        const { token } = await request.json();
+        if (!token) return fail('Missing token');
+
+        const tokenKey  = 'token:' + token;
+        const tokenData = await kvGet(env, tokenKey);
+
+        if (!tokenData || Date.now() > tokenData.expires) {
+          await kvDel(env, tokenKey);
+          return json({ ok: false, reason: 'expired' }, 401);
+        }
+
+        // Token is valid — create a session, delete the one-time token
+        await kvDel(env, tokenKey);
+        const sessionToken = randomToken();
+        const sessionKey   = 'session:' + sessionToken;
+        await kvSet(env, sessionKey, {
+          emailHash: tokenData.emailHash,
+          expires:   Date.now() + SESSION_TTL_MS
+        });
+
+        return json({ ok: true, sessionToken });
       } catch(e) { return fail('Bad request'); }
     }
 
-    // ── /requests/:id/deny DELETE — deny request (admin) ─────────────────────
+    // ════════════════════════════════════════════════════════
+    // /session/verify POST — check if a session token is valid
+    // Body: { sessionToken }
+    // ════════════════════════════════════════════════════════
+    if (path === '/session/verify' && request.method === 'POST') {
+      try {
+        const { sessionToken } = await request.json();
+        if (!sessionToken) return fail('Missing token');
+
+        const sessionKey  = 'session:' + sessionToken;
+        const sessionData = await kvGet(env, sessionKey);
+
+        if (!sessionData || Date.now() > sessionData.expires) {
+          await kvDel(env, sessionKey);
+          return json({ ok: false, reason: 'expired' }, 401);
+        }
+
+        return json({ ok: true, emailHash: sessionData.emailHash });
+      } catch(e) { return fail('Bad request'); }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // /session/logout POST — invalidate a session
+    // Body: { sessionToken }
+    // ════════════════════════════════════════════════════════
+    if (path === '/session/logout' && request.method === 'POST') {
+      try {
+        const { sessionToken } = await request.json();
+        if (sessionToken) await kvDel(env, 'session:' + sessionToken);
+        return json({ ok: true });
+      } catch(e) { return json({ ok: true }); }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // /users GET — list users + requests (admin only)
+    // ════════════════════════════════════════════════════════
+    if (path === '/users' && request.method === 'GET') {
+      if (!adminOk(request, env)) return fail('Unauthorized', 401);
+      const users    = await kvGet(env, 'users')    || [];
+      const requests = await kvGet(env, 'requests') || [];
+      return json({ users, requests });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // /requests POST — submit an access request
+    // Body: { name, email }  (full email, hashed in worker)
+    // ════════════════════════════════════════════════════════
+    if (path === '/requests' && request.method === 'POST') {
+      try {
+        const { name, email } = await request.json();
+        if (!name || !email || !email.includes('@')) return fail('Missing fields');
+
+        const emailNorm = email.trim().toLowerCase();
+        const emailHash = await sha256(emailNorm);
+        const [local, domain] = emailNorm.split('@');
+        const displayEmail = local.slice(0, 3) + '***@' + domain;
+
+        const requests = await kvGet(env, 'requests') || [];
+        const users    = await kvGet(env, 'users')    || [];
+        if (requests.find(r => r.emailHash === emailHash)) return json({ ok: false, reason: 'duplicate' });
+        if (users.find(u => u.emailHash === emailHash))    return json({ ok: false, reason: 'already_approved' });
+
+        requests.push({ id: Date.now().toString(), name, email: emailNorm, emailHash, displayEmail, ts: new Date().toISOString() });
+        await kvSet(env, 'requests', requests);
+
+        // Notify admin
+        if (env.RESEND_API_KEY && env.NOTIFY_TO) {
+          sendEmail(env, {
+            to: env.NOTIFY_TO,
+            subject: 'KVK Dashboard — nieuwe toegangsaanvraag',
+            html: `
+              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
+                <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
+                <p>Nieuwe toegangsaanvraag:</p>
+                <table>
+                  <tr><td style="padding:4px 16px 4px 0;color:#666">Naam</td><td><strong>${name}</strong></td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#666">E-mail</td><td>${displayEmail}</td></tr>
+                  <tr><td style="padding:4px 16px 4px 0;color:#666">Tijdstip</td><td>${new Date().toLocaleString('nl-BE')}</td></tr>
+                </table>
+                <p style="margin-top:1.5rem">
+                  <a href="${DASHBOARD_URL}" style="background:#c9a84c;color:#fff;padding:10px 20px;text-decoration:none">Open dashboard</a>
+                </p>
+                <p style="color:#999;font-size:0.75rem">Log in als beheerder → ⚙ Instellingen → Gebruikersbeheer.</p>
+              </div>`
+          }).catch(() => {});
+        }
+
+        return json({ ok: true });
+      } catch(e) { return fail('Bad request: ' + e.message); }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // /requests/:id/approve POST — approve + send welcome magic link
+    // ════════════════════════════════════════════════════════
+    if (path.match(/^\/requests\/[^/]+\/approve$/) && request.method === 'POST') {
+      if (!adminOk(request, env)) return fail('Unauthorized', 401);
+      try {
+        const reqId    = path.split('/')[2];
+        const requests = await kvGet(env, 'requests') || [];
+        const req      = requests.find(r => r.id === reqId);
+        if (!req) return fail('Not found', 404);
+
+        // Add to approved users
+        const users = await kvGet(env, 'users') || [];
+        if (!users.find(u => u.emailHash === req.emailHash)) {
+          users.push({ emailHash: req.emailHash, displayEmail: req.displayEmail, name: req.name });
+          await kvSet(env, 'users', users);
+        }
+        await kvSet(env, 'requests', requests.filter(r => r.id !== reqId));
+
+        // Send welcome magic link to the new user
+        const token    = randomToken();
+        const tokenKey = 'token:' + token;
+        await kvSet(env, tokenKey, { emailHash: req.emailHash, expires: Date.now() + TOKEN_TTL_MS });
+
+        try {
+          await sendEmail(env, {
+            to: req.email,
+            subject: 'KVK Dashboard — je toegang is goedgekeurd!',
+            html: magicLinkEmail(DASHBOARD_URL, token, req.name)
+          });
+        } catch(e) {
+          // User is approved even if email fails — admin can resend later
+          return json({ ok: true, emailError: e.message });
+        }
+
+        return json({ ok: true });
+      } catch(e) { return fail('Bad request: ' + e.message); }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // /requests/:id/deny DELETE
+    // ════════════════════════════════════════════════════════
     if (path.match(/^\/requests\/[^/]+\/deny$/) && request.method === 'DELETE') {
       if (!adminOk(request, env)) return fail('Unauthorized', 401);
-      const reqId = path.split('/')[2];
+      const reqId    = path.split('/')[2];
       const requests = await kvGet(env, 'requests') || [];
       await kvSet(env, 'requests', requests.filter(r => r.id !== reqId));
       return json({ ok: true });
     }
 
-    // ── /users/:emailHash DELETE — revoke user (admin) ────────────────────────
+    // ════════════════════════════════════════════════════════
+    // /users/:emailHash DELETE — revoke user
+    // ════════════════════════════════════════════════════════
     if (path.match(/^\/users\/[^/]+$/) && request.method === 'DELETE') {
       if (!adminOk(request, env)) return fail('Unauthorized', 401);
       const emailHash = path.split('/')[2];
-      const users = await kvGet(env, 'users') || [];
+      const users     = await kvGet(env, 'users') || [];
       await kvSet(env, 'users', users.filter(u => u.emailHash !== emailHash));
       return json({ ok: true });
     }
 
-    // ── /users/:emailHash/reset POST — generate one-time reset token (admin) ──
-    if (path.match(/^\/users\/[^/]+\/reset$/) && request.method === 'POST') {
+    // ════════════════════════════════════════════════════════
+    // /users/:emailHash/resend POST — resend magic link (admin)
+    // ════════════════════════════════════════════════════════
+    if (path.match(/^\/users\/[^/]+\/resend$/) && request.method === 'POST') {
       if (!adminOk(request, env)) return fail('Unauthorized', 401);
-      const emailHash = path.split('/')[2];
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      const arr = new Uint8Array(8);
-      crypto.getRandomValues(arr);
-      let token = '';
-      arr.forEach(b => token += chars[b % chars.length]);
-      const pwHash = await sha256(token);
-      const resets = (await kvGet(env, 'resets') || []).filter(r => r.emailHash !== emailHash);
-      resets.push({ emailHash, pwHash, expires: Date.now() + 24 * 60 * 60 * 1000 });
-      await kvSet(env, 'resets', resets);
-      return json({ ok: true, token });
+      try {
+        const emailHash = path.split('/')[2];
+        const { email } = await request.json();
+        if (!email) return fail('Missing email');
+
+        const token    = randomToken();
+        const tokenKey = 'token:' + token;
+        await kvSet(env, tokenKey, { emailHash, expires: Date.now() + TOKEN_TTL_MS });
+
+        await sendEmail(env, {
+          to: email,
+          subject: 'KVK Dashboard — nieuwe inloglink',
+          html: magicLinkEmail(DASHBOARD_URL, token, '')
+        });
+
+        return json({ ok: true });
+      } catch(e) { return json({ ok: false, error: e.message }, 502); }
     }
 
-    // ── /proxy GET/POST — Stamhoofd API CORS proxy ────────────────────────────
+    // ════════════════════════════════════════════════════════
+    // /proxy — Stamhoofd API CORS proxy (unchanged)
+    // ════════════════════════════════════════════════════════
     if (path === '/proxy') {
       const target = url.searchParams.get('url');
       if (!target) return fail('Missing ?url= parameter');
