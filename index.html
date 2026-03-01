@@ -538,13 +538,16 @@
     </div>
   </div>
 
-  <!-- REVENUE CHART -->
-  <div class="card">
+  <!-- WEEK CHART -->
+  <div class="card" style="position:relative">
     <div class="card-header">
-      <div class="card-title">Omzet per betaling</div>
-      <div class="card-meta">gesorteerd op datum</div>
+      <div class="card-title">Bestellingen per week</div>
+      <div class="card-meta" id="weekChartMeta">—</div>
     </div>
-    <svg class="rev-chart" id="revChart" viewBox="0 0 400 160"></svg>
+    <div style="position:relative">
+      <svg id="weekChart" style="width:100%;height:220px;overflow:visible" viewBox="0 0 800 200"></svg>
+      <div id="weekTooltip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border);padding:0.4rem 0.7rem;font-size:0.72rem;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.08);white-space:nowrap;z-index:10"></div>
+    </div>
     <div style="margin-top:1.5rem">
       <div class="card-header" style="margin-bottom:1rem">
         <div class="card-title">Betaalstatus</div>
@@ -552,14 +555,6 @@
       <div id="paymentBreakdown"></div>
     </div>
   </div>
-</div>
-
-<div class="card" style="margin-bottom:1px;border-top:1px solid var(--border)">
-  <div class="card-header">
-    <div class="card-title">Bestellingen per week</div>
-    <div class="card-meta" id="weekChartMeta">—</div>
-  </div>
-  <svg id="weekChart" style="width:100%;height:180px;overflow:visible" viewBox="0 0 800 180"></svg>
 </div>
 
 <div class="table-wrap">
@@ -795,16 +790,11 @@ function renderDashboard(orders, webshop) {
   // Shows from webshop products
   renderShows(webshop, orders);
 
-  // Revenue chart (per unique order)
-  renderRevenueChart(uniqueOrders, getPrice, getCreatedAt);
-
-  // Payment breakdown (per unique order)
+  // Weekly orders chart + payment breakdown
+  renderWeekChart(uniqueOrders, getCreatedAt);
   renderPaymentBreakdown(uniqueOrders, getStatus);
 
-  // Weekly orders chart
-  renderWeekChart(uniqueOrders, getCreatedAt);
-
-  // Orders table (per unique order, enriched)
+  // Orders table
   renderOrders(uniqueOrders, getPrice, getStatus, getItems, getCreatedAt, getOrderNr, getCustomer, getMethod);
 }
 
@@ -1030,15 +1020,24 @@ function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOr
 
 function renderWeekChart(orders, getCreatedAt) {
   const svg = document.getElementById('weekChart');
+  const tooltip = document.getElementById('weekTooltip');
   if (!orders.length) return;
 
-  // Group orders by ISO week (Mon–Sun)
   function getWeekKey(ts) {
     const d = new Date(ts);
-    const day = d.getDay() || 7; // Mon=1 … Sun=7
+    const day = d.getDay() || 7;
     const mon = new Date(d);
     mon.setDate(d.getDate() - day + 1);
     return mon.toISOString().slice(0, 10);
+  }
+
+  function getWeekNumber(dateStr) {
+    const d = new Date(dateStr);
+    const jan4 = new Date(d.getFullYear(), 0, 4);
+    const startOfWeek1 = new Date(jan4);
+    startOfWeek1.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+    const weekNum = Math.floor((d - startOfWeek1) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return weekNum;
   }
 
   const weeks = {};
@@ -1048,45 +1047,74 @@ function renderWeekChart(orders, getCreatedAt) {
   });
 
   const sorted = Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]));
-  document.getElementById('weekChartMeta').textContent = `${sorted.length} weken`;
+  document.getElementById('weekChartMeta').textContent = sorted.length + ' weken';
 
-  const W = 800, H = 160, PL = 36, PR = 10, PT = 10, PB = 30;
+  const W = 800, H = 200, PL = 36, PR = 10, PT = 10, PB = 30;
   const cW = W - PL - PR, cH = H - PT - PB;
-  const counts = sorted.map(([, v]) => v);
-  const maxVal = Math.max(...counts, 1);
+  const counts = sorted.map(function(e) { return e[1]; });
+  const maxVal = Math.max.apply(null, counts.concat([1]));
   const n = sorted.length;
-  const barW = Math.max(6, Math.min(36, (cW / n) - 4));
-  const px = i => PL + (i + 0.5) * (cW / n);
+  const barW = Math.max(6, Math.min(40, (cW / n) - 4));
+  const px = function(i) { return PL + (i + 0.5) * (cW / n); };
 
-  // Y gridlines
   let grid = '';
   const ticks = 4;
   for (let i = 0; i <= ticks; i++) {
     const val = Math.round((maxVal / ticks) * i);
     const y = PT + cH - (val / maxVal) * cH;
-    grid += `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
-    grid += `<text x="${PL - 4}" y="${y + 4}" text-anchor="end" font-family="Outfit,sans-serif" font-size="10" fill="var(--muted)">${val}</text>`;
+    grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (W - PR) + '" y2="' + y + '" stroke="var(--border)" stroke-width="1"/>';
+    grid += '<text x="' + (PL - 4) + '" y="' + (y + 4) + '" text-anchor="end" font-family="Outfit,sans-serif" font-size="10" fill="var(--muted)">' + val + '</text>';
   }
 
-  // Bars
   let bars = '';
-  sorted.forEach(([week, count], i) => {
+  sorted.forEach(function(entry, i) {
+    const week = entry[0], count = entry[1];
     const x = px(i) - barW / 2;
     const h = Math.max(2, (count / maxVal) * cH);
     const y = PT + cH - h;
-    // Label every ~4 weeks to avoid crowding
     const label = (n <= 16 || i % Math.ceil(n / 16) === 0)
       ? new Date(week).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
       : '';
-    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="var(--gold)" opacity="0.85" rx="2">
-      <title>Week van ${week}: ${count} bestelling${count !== 1 ? 'en' : ''}</title>
-    </rect>`;
+    const weekNr = getWeekNumber(week);
+    bars += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" fill="var(--gold)" opacity="0.85" rx="2"'
+      + ' data-week="' + week + '" data-count="' + count + '" data-weeknr="' + weekNr + '"'
+      + ' style="cursor:pointer;transition:opacity 0.1s"'
+      + ' onmouseenter="showWeekTooltip(event,this)" onmouseleave="hideWeekTooltip()">'
+      + '</rect>';
     if (label) {
-      bars += `<text x="${px(i)}" y="${PT + cH + 16}" text-anchor="middle" font-family="Outfit,sans-serif" font-size="9" fill="var(--muted)">${label}</text>`;
+      bars += '<text x="' + px(i) + '" y="' + (PT + cH + 16) + '" text-anchor="middle" font-family="Outfit,sans-serif" font-size="9" fill="var(--muted)">' + label + '</text>';
     }
   });
 
   svg.innerHTML = grid + bars;
+}
+
+function showWeekTooltip(event, rect) {
+  const tooltip = document.getElementById('weekTooltip');
+  const week = rect.getAttribute('data-week');
+  const count = rect.getAttribute('data-count');
+  const weekNr = rect.getAttribute('data-weeknr');
+  const d = new Date(week);
+  const endD = new Date(d);
+  endD.setDate(d.getDate() + 6);
+  const fmt = function(dt) { return dt.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }); };
+  tooltip.innerHTML = '<strong>Week ' + weekNr + '</strong> &nbsp;' + fmt(d) + ' – ' + fmt(endD)
+    + '<br><span style="color:var(--gold)">' + count + ' bestelling' + (count != 1 ? 'en' : '') + '</span>';
+  tooltip.style.display = 'block';
+  // Position relative to the SVG container
+  const svgEl = document.getElementById('weekChart');
+  const svgRect = svgEl.getBoundingClientRect();
+  const barRect = rect.getBoundingClientRect();
+  const left = barRect.left - svgRect.left + barRect.width / 2;
+  const top = barRect.top - svgRect.top - 10;
+  tooltip.style.left = Math.min(left, svgRect.width - 160) + 'px';
+  tooltip.style.top = (top - tooltip.offsetHeight - 4) + 'px';
+  rect.setAttribute('opacity', '1');
+}
+
+function hideWeekTooltip() {
+  document.getElementById('weekTooltip').style.display = 'none';
+  document.querySelectorAll('#weekChart rect').forEach(function(r) { r.setAttribute('opacity', '0.85'); });
 }
 
 function renderFallback() {
