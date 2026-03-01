@@ -64,7 +64,8 @@ async function sendEmail(env, { to, subject, html }) {
 }
 
 function magicLinkEmail(dashboardUrl, token, name) {
-  const link = dashboardUrl + '?token=' + token;
+  const base = dashboardUrl.endsWith('/') ? dashboardUrl : dashboardUrl + '/';
+  const link = base + '?token=' + token;
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
       <h2 style="font-size:1.1rem;color:#1a1a1a">🎭 KVK Dashboard</h2>
