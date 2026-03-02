@@ -3,17 +3,15 @@
 // ── Required secrets ──────────────────────────────────────────────────────────
 //   STAMHOOFD_API_KEY  — your Stamhoofd API key
 //   ADMIN_PASSWORD     — admin password for the dashboard
-//   RESEND_API_KEY     — from resend.com (free: 100 emails/day)
+//   BREVO_API_KEY      — from brevo.com (free: 300 emails/day, any recipient)
 //   NOTIFY_TO          — your email address (admin notifications)
-//   NOTIFY_FROM        — verified sender, e.g. dashboard@yourdomain.com
-//                        OR use 'onboarding@resend.dev' for testing only
+//   NOTIFY_FROM        — a verified sender address in your Brevo account
 //   DASHBOARD_URL      — full URL of your dashboard, e.g. https://dennisgeleyn.github.io/kvk-dashboard
 //
 // ── Required KV binding ───────────────────────────────────────────────────────
 //   Variable name: KVK_STORE
 //   Create in: Cloudflare dashboard → Workers & Pages → KV → Create namespace
 //   Bind in:   Worker → Settings → Variables → KV Namespace Bindings
-// v4
 
 const ALLOWED_ORIGIN = '*';
 const ALLOWED_HOSTS  = ['api.stamhoofd.app', 'status.stamhoofd.app'];
@@ -50,16 +48,21 @@ function adminOk(request, env) {
 }
 
 async function sendEmail(env, { to, subject, html }) {
-  if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not set');
-  const from = env.NOTIFY_FROM || 'onboarding@resend.dev';
-  const res = await fetch('https://api.resend.com/emails', {
+  if (!env.BREVO_API_KEY) throw new Error('BREVO_API_KEY not set');
+  const from = env.NOTIFY_FROM || 'dashboard@kvk.be';
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, html, track_clicks: false, track_opens: false })
+    headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender: { email: from, name: 'KVK Dashboard' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html
+    })
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error('Resend error ' + res.status + ': ' + txt);
+    throw new Error('Brevo error ' + res.status + ': ' + txt);
   }
   return true;
 }
