@@ -276,7 +276,7 @@ export default {
         // Add to approved users
         const users = await kvGet(env, 'users') || [];
         if (!users.find(u => u.emailHash === req.emailHash)) {
-          users.push({ emailHash: req.emailHash, displayEmail: req.displayEmail, name: req.name });
+          users.push({ emailHash: req.emailHash, displayEmail: req.displayEmail, name: req.name, email: req.email });
           await kvSet(env, 'users', users);
         }
         await kvSet(env, 'requests', requests.filter(r => r.id !== reqId));
@@ -330,7 +330,12 @@ export default {
       if (!adminOk(request, env)) return fail('Unauthorized', 401);
       try {
         const emailHash = path.split('/')[2];
-        const { email } = await request.json();
+        const body = await request.json().catch(() => ({}));
+
+        // Prefer email stored in user record; fall back to what admin provided
+        const users = await kvGet(env, 'users') || [];
+        const user  = users.find(u => u.emailHash === emailHash);
+        const email = (user && user.email) || body.email;
         if (!email) return fail('Missing email');
 
         const token    = randomToken();
@@ -340,7 +345,7 @@ export default {
         await sendEmail(env, {
           to: email,
           subject: 'KVK Dashboard — nieuwe inloglink',
-          html: magicLinkEmail(DASHBOARD_URL, token, '')
+          html: magicLinkEmail(DASHBOARD_URL, token, (user && user.name) || '')
         });
 
         return json({ ok: true });
