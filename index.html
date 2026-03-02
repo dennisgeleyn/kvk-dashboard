@@ -1624,9 +1624,10 @@ async function renderUserList() {
       html += '<div style="font-size:0.68rem;color:var(--muted);margin:0.75rem 0 0.4rem">Actieve gebruikers</div>';
       users.forEach(u => {
         html += '<div class="user-row">'
-          + '<div class="user-info"><div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div></div>'
+          + '<div class="user-info"><div class="user-name">' + escHtml(u.name || '') + '</div><div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div></div>'
           + '<span class="user-status-pill pill-active">Actief</span>'
           + '<div class="user-actions">'
+          + '<button class="user-btn" onclick="resendLink(&quot;' + u.emailHash + '&quot;)">Stuur nieuwe link</button>'
           + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
           + '</div></div>';
       });
@@ -1672,6 +1673,23 @@ async function revokeUser(emailHash) {
   try {
     await workerAdmin('/users/' + emailHash, { method: 'DELETE' });
     renderUserList();
+  } catch(e) { alert('Fout: ' + e.message); }
+}
+
+async function resendLink(emailHash) {
+  const email = prompt('E-mailadres van deze gebruiker (voor de inloglink):');
+  if (!email || !email.includes('@')) return;
+  try {
+    const res  = await workerAdmin('/users/' + emailHash + '/resend', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim().toLowerCase() })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert('Inloglink verstuurd naar ' + email.trim().toLowerCase());
+    } else {
+      alert('Versturen mislukt: ' + (data.error || res.status));
+    }
   } catch(e) { alert('Fout: ' + e.message); }
 }
 
@@ -1914,7 +1932,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     <span>RPR Gent, afdeling Dendermonde</span>
   </div>
   <div class="footer-row">
-    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude</a> van Anthropic</span>
+    <span>Gebouwd met <a href="https://claude.ai" target="_blank">Claude AI</a></span>
     <span class="footer-dot">·</span>
     <span>Laatste update: <span id="lastCommitDate">laden...</span></span>
     <span class="footer-dot">·</span>
