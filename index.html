@@ -1684,13 +1684,15 @@ async function resendLink(emailHash) {
       method: 'POST',
       body: JSON.stringify({ email: email.trim().toLowerCase() })
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (data.ok) {
-      alert('Inloglink verstuurd naar ' + email.trim().toLowerCase());
+      alert('✅ Inloglink verstuurd naar ' + email.trim().toLowerCase());
     } else {
-      alert('Versturen mislukt: ' + (data.error || res.status));
+      alert('❌ Versturen mislukt (status ' + res.status + '): ' + (data.error || JSON.stringify(data)));
     }
-  } catch(e) { alert('Fout: ' + e.message); }
+  } catch(e) {
+    alert('❌ Netwerkfout: ' + e.message);
+  }
 }
 
 // ─── ADMIN AUTH ───────────────────────────────────────────
