@@ -43,7 +43,7 @@ There are no passwords for regular users. Instead:
 4. Sessions last 7 days; tokens expire after 15 minutes and are single-use
 5. To log in again after 7 days, they just request a new link
 
-> **Note:** Magic links are currently sent as plain text (not clickable buttons) to avoid Resend's click-tracking wrapper distorting the URL. Once you verify your own sending domain in Resend and disable click tracking there, you can switch back to buttons.
+> **Note:** Magic links are currently sent as plain text (not clickable buttons). Once you verify your own domain in Brevo you can disable click tracking and switch back to clickable buttons.
 
 Admin login uses a password (stored as a Worker secret, never in source code).
 
@@ -60,11 +60,11 @@ Admin login uses a password (stored as a Worker secret, never in source code).
 
 ## Setup
 
-### 1. Create a Resend account
+### 1. Create a Brevo account
 
-1. Sign up at [resend.com](https://resend.com) (free tier: 100 emails/day)
-2. Create an API key
-3. For production: verify your own sending domain and disable click tracking. For testing: use `onboarding@resend.dev` as the sender (can only send to your own verified email address)
+1. Sign up at [brevo.com](https://brevo.com) (free tier: 300 emails/day, send to any recipient)
+2. Go to **Senders & IPs → Senders → Add a sender** and verify your email address
+3. Go to **Settings → API Keys** and create a new API key
 
 ### 2. Deploy the Cloudflare Worker
 
@@ -83,9 +83,9 @@ In **Worker → Settings → Variables & Secrets**, add:
 |---|---|
 | `STAMHOOFD_API_KEY` | Your Stamhoofd API key |
 | `ADMIN_PASSWORD` | Your admin password |
-| `RESEND_API_KEY` | Your Resend API key |
+| `BREVO_API_KEY` | Your Brevo API key |
 | `NOTIFY_TO` | Your email — receives access request notifications |
-| `NOTIFY_FROM` | Sender address (`onboarding@resend.dev` for testing) |
+| `NOTIFY_FROM` | A verified sender address in your Brevo account |
 | `DASHBOARD_URL` | `https://dennisgeleyn.github.io/kvk-dashboard` |
 
 > Secrets are set once in the Cloudflare dashboard and are never touched by GitHub Actions deployments.
@@ -142,6 +142,10 @@ On the login screen, type `admin` or `beheerder` as the email address. A passwor
 3. Log in as admin → **⚙ Instellingen** → **Gebruikersbeheer**
 4. Click **Goedkeuren** → user is approved and immediately receives a magic login link by email
 
+### Resending a magic link
+
+If a user's link has expired or was lost, click **Stuur nieuwe link** next to their name in **Gebruikersbeheer**. You'll be prompted for their email address if it isn't stored yet (this only happens for users approved before this feature was added).
+
 ### Revoking access
 
 Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessions expire within 7 days at most.
@@ -166,4 +170,4 @@ Built for internal use by **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht vz
 Registered office: Kouterstraat 261, 9130 Kieldrecht, Belgium  
 Company number: 1010.418.811 — RPR Ghent, Dendermonde division
 
-Built with [Claude](https://claude.ai) by Anthropic.
+Built with [Claude AI](https://claude.ai) by Anthropic.
