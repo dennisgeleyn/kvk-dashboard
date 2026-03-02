@@ -170,7 +170,7 @@ export default {
         const users = await kvGet(env, 'users') || [];
         const user  = users.find(u => u.emailHash === tokenData.emailHash);
 
-        return json({ ok: true, sessionToken, name: (user && user.name) || '' });
+        return json({ ok: true, sessionToken, name: (user && user.name) || '', displayEmail: (user && user.displayEmail) || '' });
       } catch(e) { return fail('Bad request'); }
     }
 
@@ -199,7 +199,7 @@ export default {
         const users = await kvGet(env, 'users') || [];
         const user  = users.find(u => u.emailHash === sessionData.emailHash);
 
-        return json({ ok: true, emailHash: sessionData.emailHash, name: (user && user.name) || '' });
+        return json({ ok: true, emailHash: sessionData.emailHash, name: (user && user.name) || '', displayEmail: (user && user.displayEmail) || '' });
       } catch(e) { return fail('Bad request'); }
     }
 
