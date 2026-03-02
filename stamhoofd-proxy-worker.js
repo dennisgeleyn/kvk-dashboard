@@ -249,7 +249,7 @@ export default {
 
         // Notify admin — must be awaited, unawaited fetches are killed when Worker returns
         let emailError = null;
-        if (env.RESEND_API_KEY && env.NOTIFY_TO) {
+        if (env.BREVO_API_KEY && env.NOTIFY_TO) {
           try {
             await sendEmail(env, {
               to: env.NOTIFY_TO,
