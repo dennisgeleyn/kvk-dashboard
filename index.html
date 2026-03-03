@@ -1867,7 +1867,7 @@ try {
   if (el) el.textContent = date.toLocaleString('nl-BE', {
     day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
-  }) + ' — v' + totalCommits;
+  }) + ' — versie ' + totalCommits;
 } catch(e) {
   const el = document.getElementById('lastCommitDate');
   if (el) el.textContent = 'onbekend';
