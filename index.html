@@ -1246,6 +1246,7 @@ function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOr
 function renderWeekChart(orders, getCreatedAt, getItems) {
   const svg = document.getElementById('weekChart');
   const tooltip = document.getElementById('weekTooltip');
+  svg.innerHTML = '';
   if (!orders.length) return;
 
   function getWeekKey(ts) {
