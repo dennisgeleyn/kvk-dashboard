@@ -1048,7 +1048,7 @@ function renderShows(webshop, orders) {
     const fillClass = pct >= 90 ? 'almost' : pct >= 60 ? '' : 'good';
 
     // Per-price-tier breakdown (e.g. Standaard 159/∞, VIP 0/36)
-    const visiblePrices = (p.prices ?? []).filter(pr => !pr.hidden && pr.price > 0);
+    const visiblePrices = (p.prices ?? []).filter(pr => pr.price > 0);
     const showDate = p.dateRange?.startDate ? fmtDate(p.dateRange.startDate) : '';
     const showTime = p.dateRange?.startDate
       ? new Date(p.dateRange.startDate).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
