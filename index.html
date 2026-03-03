@@ -1157,11 +1157,13 @@ function renderRevenueChart(orders, getPrice, getCreatedAt) {
 }
 
 function renderPaymentBreakdown(orders, getStatus) {
+  const ALLOWED = ['Succeeded', 'Created'];
+  const filtered = orders.filter(o => ALLOWED.includes(getStatus(o)));
   const statuses = {};
-  orders.forEach(o => { const s = getStatus(o); statuses[s] = (statuses[s] || 0) + 1; });
-  const total = orders.length;
-  const labels = { Succeeded: 'Betaald', Created: 'Openstaand', Failed: 'Mislukt', Pending: 'In behandeling' };
-  const colors = { Succeeded: 'var(--green)', Created: 'var(--gold)', Failed: 'var(--red)', Pending: 'var(--muted)' };
+  filtered.forEach(o => { const s = getStatus(o); statuses[s] = (statuses[s] || 0) + 1; });
+  const total = filtered.length;
+  const labels = { Succeeded: 'Betaald', Created: 'Openstaand' };
+  const colors = { Succeeded: 'var(--green)', Created: 'var(--gold)' };
 
   document.getElementById('paymentBreakdown').innerHTML = Object.entries(statuses).map(([status, count]) => {
     const pct = Math.round((count / total) * 100);
