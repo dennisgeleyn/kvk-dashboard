@@ -983,7 +983,7 @@ function renderDashboard(orders, webshop) {
   const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
   const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
   const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
-  const activeOrders = orders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
+  const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
   let totalTickets = 0;
   activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
 
