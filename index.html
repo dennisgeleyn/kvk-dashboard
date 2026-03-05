@@ -976,7 +976,7 @@ function renderDashboard(orders, webshop) {
   };
   const getCustomer = o => o.data?.customer ?? null;
   const getMethod = o => o.payment?.method ?? o.data?.paymentMethod ?? '—';
-  const uniqueOrders = orders;
+  const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted');
 
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
   const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
