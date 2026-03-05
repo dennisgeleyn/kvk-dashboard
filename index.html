@@ -977,6 +977,7 @@ function renderDashboard(orders, webshop) {
   const getCustomer = o => o.data?.customer ?? null;
   const getMethod = o => o.payment?.method ?? o.data?.paymentMethod ?? '—';
   const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted');
+  console.log('Statuses:', orders.map(o => getStatus(o)));
 
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
   const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
