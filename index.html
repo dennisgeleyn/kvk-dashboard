@@ -1007,7 +1007,7 @@ function renderDashboard(orders, webshop) {
   renderShows(webshop, orders);
 
   // Weekly orders chart + payment breakdown
-  renderWeekChart(uniqueOrders, getCreatedAt, getItems);
+  renderWeekChart(uniqueOrders, getCreatedAt, getItems, getStatus);
   renderPaymentBreakdown(uniqueOrders, getStatus);
 
   // Orders table
@@ -1241,7 +1241,7 @@ function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOr
   renderRows();
 }
 
-function renderWeekChart(orders, getCreatedAt, getItems) {
+function renderWeekChart(orders, getCreatedAt, getItems, getStatus) {
   const svg = document.getElementById('weekChart');
   const tooltip = document.getElementById('weekTooltip');
   svg.innerHTML = '';
@@ -1268,10 +1268,10 @@ function getWeekKey(ts) {
     return weekNum;
   }
 
-  const weeks = {};
+const weeks = {};
   const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
   orders.forEach(o => {
-    if (CANCELLED.includes(o.payment && o.payment.status ? o.payment.status : '')) return;
+    if (CANCELLED.includes(getStatus(o))) return;
     const key = getWeekKey(getCreatedAt(o));
     const tickets = getItems(o).reduce(function(s, i) { return s + (i.amount || 0); }, 0);
     weeks[key] = (weeks[key] || 0) + tickets;
