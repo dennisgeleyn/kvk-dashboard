@@ -977,6 +977,7 @@ function renderDashboard(orders, webshop) {
   const getCustomer = o => o.data?.customer ?? null;
   const getMethod = o => o.payment?.method ?? o.data?.paymentMethod ?? '—';
   const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted');
+  console.log('Prepared orders:', orders.filter(o => getStatus(o) === 'Prepared'));
 
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
   const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
@@ -1189,8 +1190,8 @@ function renderOrders(orders, getPrice, getStatus, getItems, getCreatedAt, getOr
   }
 
   const sorted = [...orders].sort((a, b) => getCreatedAt(b) - getCreatedAt(a));
-  const pillClass = { Succeeded: 'pill-succeeded', Created: 'pill-created', Failed: 'pill-failed', Pending: 'pill-pending' };
-  const pillLabel = { Succeeded: 'Betaald', Created: 'Openstaand', Failed: 'Mislukt', Pending: 'Bezig' };
+  const pillClass = { Succeeded: 'pill-succeeded', Created: 'pill-created', Failed: 'pill-failed', Pending: 'pill-pending', Prepared: 'pill-succeeded' };
+  const pillLabel = { Succeeded: 'Betaald', Created: 'Openstaand', Failed: 'Mislukt', Pending: 'Bezig', Prepared: 'Betaald' };
 
   const PAGE_SIZE = 10;
   let showing = Math.min(PAGE_SIZE, sorted.length);
