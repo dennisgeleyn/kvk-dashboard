@@ -1029,7 +1029,7 @@ function renderShows(webshop, orders) {
   }
 
   // Count tickets sold per product+price from actual orders (non-cancelled)
-  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
+  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
   const soldPerProduct = {};
   orders.forEach(o => {
     const status = o.payment?.status ?? o.status ?? '';
