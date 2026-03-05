@@ -985,7 +985,7 @@ function renderDashboard(orders, webshop) {
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
   const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
   const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
-  const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
+  const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
   const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
   let totalTickets = 0;
   activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
@@ -1273,7 +1273,7 @@ function getWeekKey(ts) {
   }
 
 const weeks = {};
-  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed'];
+  const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
   orders.forEach(o => {
     if (CANCELLED.includes(getStatus(o))) return;
     const key = getWeekKey(getCreatedAt(o));
