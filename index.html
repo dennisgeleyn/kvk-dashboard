@@ -975,7 +975,11 @@ function renderDashboard(orders, webshop) {
     return m ? m[1] : null;
   };
   const getCustomer = o => o.data?.customer ?? null;
-  const getMethod = o => o.payment?.method ?? o.data?.paymentMethod ?? '—';
+  const getMethod = o => {
+  const method = o.payment?.method ?? o.data?.paymentMethod ?? '—';
+  const labels = { Transfer: 'Overschrijving' };
+  return labels[method] ?? method;
+};
   const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted')
 
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
