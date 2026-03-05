@@ -1247,13 +1247,17 @@ function renderWeekChart(orders, getCreatedAt, getItems) {
   svg.innerHTML = '';
   if (!orders.length) return;
 
-  function getWeekKey(ts) {
-    const d = new Date(ts);
-    const day = d.getDay() || 7;
-    const mon = new Date(d);
-    mon.setDate(d.getDate() - day + 1);
-    return mon.toISOString().slice(0, 10);
-  }
+function getWeekKey(ts) {
+  const d = new Date(ts);
+  const day = d.getDay() || 7;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - day + 1);
+  // Use local date parts instead of toISOString() to avoid UTC shift
+  const y = mon.getFullYear();
+  const m = String(mon.getMonth() + 1).padStart(2, '0');
+  const dd = String(mon.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
   function getWeekNumber(dateStr) {
     const d = new Date(dateStr);
