@@ -981,25 +981,18 @@ function renderDashboard(orders, webshop) {
   return labels[method] ?? method;
 };
   
-  const products = webshop?.products || webshop?.data?.products || [];
-  const capacity = (CONFIG.capacity || DEFAULTS.capacity) * products.length;
-  const pctSold = capacity ? Math.round((totalTickets / capacity) * 100) : null;
-  
-  const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted')
-
-  const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
-  const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
-  const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
-  const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
-  const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
-  let totalTickets = 0;
-  activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
-
-  const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
-
+ const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted');
+const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
+const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
+const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
+const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
+const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
+let totalTickets = 0;
+activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
+const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
+const products = webshop?.products || webshop?.data?.products || [];
 const totalCapacity = (CONFIG.capacity || DEFAULTS.capacity) * products.length;
-const capacityPct = capacity ? Math.round((totalTickets / totalCapacity) * 100) : null;
-
+const capacityPct = totalCapacity ? Math.round((totalTickets / totalCapacity) * 100) : null;
 const kpis = [
   { label: 'Totale omzet', value: fmt(totalRevenue), sub: `${fmt(paidRevenue)} betaald` },
   { label: 'Tickets verkocht', value: totalTickets, sub: capacityPct !== null ? `${capacityPct}% van ${totalCapacity} plaatsen` : `${uniqueOrders.length} bestellingen` },
