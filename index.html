@@ -980,6 +980,11 @@ function renderDashboard(orders, webshop) {
   const labels = { Transfer: 'Overschrijving' };
   return labels[method] ?? method;
 };
+  
+  const products = webshop?.products || webshop?.data?.products || [];
+  const capacity = (CONFIG.capacity || DEFAULTS.capacity) * products.length;
+  const pctSold = capacity ? Math.round((totalTickets / capacity) * 100) : null;
+  
   const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted')
 
   const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
