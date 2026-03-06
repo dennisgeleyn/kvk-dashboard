@@ -992,13 +992,15 @@ function renderDashboard(orders, webshop) {
 
   const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
 
-  const kpis = [
-    { label: 'Totale omzet', value: fmt(totalRevenue), sub: `${fmt(paidRevenue)} betaald` },
-    { label: 'Tickets verkocht', value: totalTickets, sub: `${uniqueOrders.length} bestellingen` },
-    { label: 'Betaald', value: paid.length, sub: `van ${uniqueOrders.length} bestellingen` },
-    { label: 'Gem. bestelwaarde', value: fmt(avgOrder), sub: 'per bestelling' },
-  ];
+const capacity = CONFIG.capacity || DEFAULTS.capacity;
+const pctSold = capacity ? Math.round((totalTickets / capacity) * 100) : null;
 
+const kpis = [
+  { label: 'Totale omzet', value: fmt(totalRevenue), sub: `${fmt(paidRevenue)} betaald` },
+  { label: 'Tickets verkocht', value: totalTickets, sub: pctSold !== null ? `${pctSold}% van ${capacity} plaatsen` : `${uniqueOrders.length} bestellingen` },
+  { label: 'Betaald', value: paid.length, sub: `van ${uniqueOrders.length} bestellingen` },
+  { label: 'Gem. bestelwaarde', value: fmt(avgOrder), sub: 'per bestelling' },
+];
   document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
     <div class="kpi loaded">
       <div class="kpi-label">${k.label}</div>
