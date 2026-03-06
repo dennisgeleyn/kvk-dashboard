@@ -998,11 +998,11 @@ function renderDashboard(orders, webshop) {
   const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
 
 const totalCapacity = (CONFIG.capacity || DEFAULTS.capacity) * products.length;
-const pctSold = capacity ? Math.round((totalTickets / capacity) * 100) : null;
+const capacityPct = capacity ? Math.round((totalTickets / totalCapacity) * 100) : null;
 
 const kpis = [
   { label: 'Totale omzet', value: fmt(totalRevenue), sub: `${fmt(paidRevenue)} betaald` },
-  { label: 'Tickets verkocht', value: totalTickets, sub: pctSold !== null ? `${pctSold}% van ${totalCapacity} plaatsen` : `${uniqueOrders.length} bestellingen` },
+  { label: 'Tickets verkocht', value: totalTickets, sub: capacityPct !== null ? `${capacityPct}% van ${totalCapacity} plaatsen` : `${uniqueOrders.length} bestellingen` },
   { label: 'Betaald', value: paid.length, sub: `van ${uniqueOrders.length} bestellingen` },
   { label: 'Gem. bestelwaarde', value: fmt(avgOrder), sub: 'per bestelling' },
 ];
