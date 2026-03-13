@@ -981,7 +981,7 @@ function renderDashboard(orders, webshop) {
   return labels[method] ?? method;
 };
   
- const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted');
+ const uniqueOrders = orders.filter(o => getStatus(o) !== 'Deleted', 'Canceled');
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
 const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
 const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
