@@ -987,7 +987,7 @@ async function loadData() {
   
 const uniqueOrders = orders.filter(o => {
   if (o.status === 'Deleted') return false;
-  if (o.status === 'Canceled' && o.payment?.status === 'Refunded') return false;
+  if (o.status === 'Canceled' && o.payment?.status !== 'Succeeded') return false;
   return true;
 });
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
