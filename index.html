@@ -992,7 +992,7 @@ const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getSt
   console.log('Active orders:', activeOrders.map(o => getStatus(o)));
 let totalTickets = 0;
 activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
-  console.log('All statuses:', orders.map(o => ({ status: getStatus(o), items: getItems(o) })));
+  console.log('All statuses:', orders.map(o => getStatus(o)));
 const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
 const products = webshop?.products || webshop?.data?.products || [];
 const totalCapacity = (CONFIG.capacity || DEFAULTS.capacity) * products.length;
