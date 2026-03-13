@@ -966,7 +966,7 @@ async function loadData() {
 function renderDashboard(orders, webshop) {
   // Field accessors based on confirmed API response structure
   const getPrice = o => o.payment?.price ?? 0;
-  const getStatus = o => o.payment?.status ?? o.status ?? 'Unknown';
+  const getStatus = o => o.status ?? o.payment?.status ?? 'Unknown';
   const getItems = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
   const getOrderNr = o => {
