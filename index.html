@@ -1654,12 +1654,16 @@ async function renderUserList() {
       html += '<div style="font-size:0.68rem;color:var(--muted);margin:0.75rem 0 0.4rem">Actieve gebruikers</div>';
       users.forEach(u => {
         html += '<div class="user-row">'
-          + '<div class="user-info"><div class="user-name">' + escHtml(u.name || '') + '</div><div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div></div>'
-          + '<span class="user-status-pill pill-active">Actief</span>'
-          + '<div class="user-actions">'
-          + '<button class="user-btn" onclick="resendLink(&quot;' + u.emailHash + '&quot;)">Stuur nieuwe link</button>'
-          + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
-          + '</div></div>';
+          + '<div class="user-info"><div class="user-name">' + escHtml(u.name || '') + '</div>'
+          + '<div class="user-email">' + escHtml(u.displayEmail || u.emailHash.slice(0,8) + '...') + '</div>'
+    + (u.lastLogin ? '<div class="user-email">Laatst ingelogd: ' + new Date(u.lastLogin).toLocaleString("nl-BE") + '</div>' : '')
+    + '</div>'
+    + '<span class="user-status-pill pill-active">Actief</span>'
+    + '<div class="user-actions">'
+    + '<button class="user-btn" onclick="resendLink(&quot;' + u.emailHash + '&quot;)">Stuur nieuwe link</button>'
+    + '<button class="user-btn danger" onclick="revokeUser(&quot;' + u.emailHash + '&quot;)">Verwijderen</button>'
+    + '</div></div>';
+});
       });
     }
 
