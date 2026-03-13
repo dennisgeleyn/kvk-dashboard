@@ -985,7 +985,11 @@ async function loadData() {
   return labels[method] ?? method;
 };
   
-const uniqueOrders = orders.filter(o => !['Deleted', 'Canceled'].includes(getStatus(o)));
+const uniqueOrders = orders.filter(o => {
+  if (o.status === 'Deleted') return false;
+  if (o.status === 'Canceled' && o.payment?.status === 'Refunded') return false;
+  return true;
+});
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
 const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
 const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
