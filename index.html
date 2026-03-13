@@ -967,7 +967,10 @@ async function loadData() {
   window._orders = orders;  // 👈 temporary debug line
   // Field accessors based on confirmed API response structure
   const getPrice = o => o.payment?.price ?? 0;
-  const getStatus = o => o.status ?? o.payment?.status ?? 'Unknown';
+  const getStatus = o => {
+    if (['Canceled', 'Deleted'].includes(o.status)) return o.status;
+    return o.payment?.status ?? o.status ?? 'Unknown';
+  };
   const getItems = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
   const getOrderNr = o => {
