@@ -991,7 +991,7 @@ const uniqueOrders = orders.filter(o => {
   return true;
 });
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
-const totalRevenue = uniqueOrders.filter(o => o.payment?.status === 'Succeeded').reduce((s, o) => s + getPrice(o), 0);
+const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
 const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
 const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
 const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
