@@ -1632,6 +1632,7 @@ async function renderUserList() {
     const res = await workerAdmin('/users');
     if (!res.ok) { el.innerHTML = '<div class="empty-users">Kon gebruikers niet laden (controleer admin token).</div>'; return; }
     const { users, requests } = await res.json();
+      console.log('User data:', users);
 
     let html = '';
 
