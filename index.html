@@ -964,6 +964,8 @@ async function loadData() {
 
 // ─── RENDER ───────────────────────────────────────────────
 function renderDashboard(orders, webshop) {
+  function renderDashboard(orders, webshop) {
+  window._orders = orders;  // 👈 temporary debug line
   // Field accessors based on confirmed API response structure
   const getPrice = o => o.payment?.price ?? 0;
   const getStatus = o => o.status ?? o.payment?.status ?? 'Unknown';
