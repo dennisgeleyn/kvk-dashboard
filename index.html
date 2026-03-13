@@ -967,6 +967,7 @@ function renderDashboard(orders, webshop) {
   // Field accessors based on confirmed API response structure
   const getPrice = o => o.payment?.price ?? 0;
   const getStatus = o => o.payment?.status ?? o.status ?? 'Unknown';
+    console.log('Canceled statuses:', orders.filter(o => getStatus(o) === 'Canceled').map(o => getStatus(o)));
   const getItems = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
   const getOrderNr = o => {
@@ -988,6 +989,7 @@ const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
 const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
   console.log('Canceled orders:', orders.filter(o => getStatus(o) === 'Canceled'));
 const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
+  console.log('Active orders:', activeOrders.map(o => getStatus(o)));
 let totalTickets = 0;
 activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
 const avgOrder = uniqueOrders.length ? totalRevenue / uniqueOrders.length : 0;
