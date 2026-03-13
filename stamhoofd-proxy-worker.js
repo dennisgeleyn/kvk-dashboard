@@ -166,9 +166,14 @@ export default {
           expires:   Date.now() + SESSION_TTL_MS
         });
 
-        // Look up user name to return immediately
+        // Update lastLogin on the user record
         const users = await kvGet(env, 'users') || [];
-        const user  = users.find(u => u.emailHash === tokenData.emailHash);
+        const userIdx = users.findIndex(u => u.emailHash === tokenData.emailHash);
+        if (userIdx !== -1) {
+          users[userIdx].lastLogin = new Date().toISOString();
+          await kvSet(env, 'users', users);
+        }
+        const user = users[userIdx] ?? null;
 
         return json({ ok: true, sessionToken, name: (user && user.name) || '', displayEmail: (user && user.displayEmail) || '' });
       } catch(e) { return fail('Bad request'); }
