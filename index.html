@@ -1038,15 +1038,16 @@ function renderShows(webshop, orders) {
 
   // Count tickets sold per product+price from actual orders (non-cancelled)
   const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
-  const soldPerProduct = {};
-  orders.forEach(o => {
-    const status = o.payment?.status ?? o.status ?? '';
-    if (CANCELLED.includes(status)) return;
-    (o.data?.cart?.items ?? []).forEach(item => {
-      const pid = item.product?.id ?? item.productId;
-      if (pid) soldPerProduct[pid] = (soldPerProduct[pid] || 0) + (item.amount || 0);
-    });
+ const soldPerProduct = {};
+orders.forEach(o => {
+  if (o.status === 'Deleted') return;
+  if (o.status === 'Canceled' && o.payment?.status !== 'Succeeded') return;
+  if (['Failed', 'Refunded', 'Disputed'].includes(o.payment?.status)) return;
+  (o.data?.cart?.items ?? []).forEach(item => {
+    const pid = item.product?.id ?? item.productId;
+    if (pid) soldPerProduct[pid] = (soldPerProduct[pid] || 0) + (item.amount || 0);
   });
+});
 
   // Sort products by date ascending
   const sorted = [...products].sort((a, b) => (a.dateRange?.startDate ?? 0) - (b.dateRange?.startDate ?? 0));
