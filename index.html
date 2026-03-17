@@ -1041,7 +1041,7 @@ function renderShows(webshop, orders) {
  const soldPerProduct = {};
 orders.forEach(o => {
   if (o.status === 'Deleted') return;
-  if (o.status === 'Canceled' && o.payment?.status !== 'Succeeded') return;
+  if (o.status === 'Canceled') return;
   if (['Failed', 'Refunded', 'Disputed'].includes(o.payment?.status)) return;
   (o.data?.cart?.items ?? []).forEach(item => {
     const pid = item.product?.id ?? item.productId;
