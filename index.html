@@ -888,30 +888,24 @@ async function fetchAllOrders() {
   const seenIds = new Set();
   let allOrders = [];
   let updatedSince = 0;
-  let lastId = null;
-
+  let afterNumber = null;
   while (true) {
-    // Build inner Stamhoofd URL with pagination params BEFORE wrapping in proxy
     const inner = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
     inner.searchParams.set('updatedSince', updatedSince);
-    if (lastId) inner.searchParams.set('lastId', lastId);
+    if (afterNumber) inner.searchParams.set('afterNumber', afterNumber);
     const fetchUrl = proxied(inner.toString());
-
     const res = await fetchWithTimeout(fetchUrl, { headers: headers() }, 15000);
     if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
     const page = await res.json();
-
     const items = Array.isArray(page) ? page : (page.results || page.orders || []);
     console.log('Page fetched:', items.length, 'Total so far:', allOrders.length);
     if (!items.length) break;
-
     // Log first order on first page
     if (allOrders.length === 0) {
       document.getElementById('debugPanel').textContent = '';
       logDebug('=== FIRST RAW ORDER ===');
       logDebug(JSON.stringify(items[0], null, 2).slice(0, 3000));
     }
-
     // Deduplicate by order ID
     let newItems = 0;
     for (const item of items) {
@@ -921,25 +915,15 @@ async function fetchAllOrders() {
         newItems++;
       }
     }
-
     setStatus('⏳ ' + allOrders.length + ' bestellingen geladen...', 'loading');
-
-    // If ALL items on this page were duplicates, we've looped — stop
     if (newItems === 0) break;
-
     const last = items[items.length - 1];
-    console.log('Last item on page:', last?.id, 'updatedAt:', last?.updatedAt);
-    const nextUpdatedSince = last?.updatedAt ?? last?.createdAt ?? updatedSince;
-    const nextLastId = last?.id;
-
-    // Stop if cursor didn't move
-    if (nextLastId === lastId) break;
-
-    lastId = nextLastId;
+    const nextUpdatedSince = last?.updatedAt ?? updatedSince;
+    const nextAfterNumber = last?.number;
+    if (nextAfterNumber === afterNumber) break;
+    afterNumber = nextAfterNumber;
     updatedSince = nextUpdatedSince;
-    // No delay — avoid mobile browser killing the script mid-loop
   }
-
   logDebug('=== TOTAL UNIQUE ORDERS FETCHED: ' + allOrders.length + ' ===');
   return allOrders;
 }
