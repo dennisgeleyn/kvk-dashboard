@@ -893,7 +893,6 @@ async function fetchAllOrders() {
   while (true) {
     // Build inner Stamhoofd URL with pagination params BEFORE wrapping in proxy
     const inner = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
-    inner.searchParams.set('updatedSince', updatedSince);
     if (lastId) inner.searchParams.set('lastId', lastId);
     const fetchUrl = proxied(inner.toString());
 
