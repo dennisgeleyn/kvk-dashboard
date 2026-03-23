@@ -928,6 +928,7 @@ async function fetchAllOrders() {
     if (newItems === 0) break;
 
     const last = items[items.length - 1];
+    console.log('Last item on page:', last?.id, 'updatedAt:', last?.updatedAt);
     const nextUpdatedSince = last?.updatedAt ?? last?.createdAt ?? updatedSince;
     const nextLastId = last?.id;
 
