@@ -10,7 +10,7 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 
 - **Live sales data** — fetches all orders via the Stamhoofd API with full pagination and deduplication
 - **KPI overview** — total revenue, paid revenue, tickets sold, average order value
-- **Per-show breakdown** — tickets sold, capacity (239 seats), seats remaining, and a traffic light:
+- **Per-show breakdown** — tickets sold, capacity, seats remaining, and a traffic light:
   - 🟢 **Vrij** — fewer than 194 tickets sold
   - 🟡 **Laatste kaarten** — 194 to 233 tickets sold
   - 🔴 **Uitverkocht** — 234 or more tickets sold
