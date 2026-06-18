@@ -942,7 +942,6 @@ async function fetchAllOrders() {
     if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
     const page = await res.json();
     const items = Array.isArray(page) ? page : (page.results || page.orders || []);
-    console.log('Page fetched:', items.length, 'Total so far:', allOrders.length);
     if (!items.length) break;
     // Log first order on first page
     if (allOrders.length === 0) {
@@ -1668,7 +1667,6 @@ async function renderUserList() {
     const res = await workerAdmin('/users');
     if (!res.ok) { el.innerHTML = '<div class="empty-users">Kon gebruikers niet laden (controleer admin token).</div>'; return; }
     const { users, requests } = await res.json();
-      console.log('Users:', JSON.stringify(users));
 
     let html = '';
 
