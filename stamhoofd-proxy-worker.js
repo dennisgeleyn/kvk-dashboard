@@ -21,7 +21,7 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // sessions last 7 days
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token, X-Session-Token',
 };
 
 const json  = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
