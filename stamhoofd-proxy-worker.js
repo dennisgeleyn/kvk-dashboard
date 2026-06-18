@@ -20,7 +20,7 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // sessions last 7 days
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token, X-Session-Token',
 };
 
 const json  = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
@@ -44,6 +44,16 @@ async function kvDel(env, key)      { await env.KVK_STORE.delete(key); }
 
 function adminOk(request, env) {
   return request.headers.get('X-Admin-Token') === env.ADMIN_PASSWORD;
+}
+
+// Used to gate access to the Stamhoofd data proxy: either a valid admin
+// token, or a valid (non-expired) regular user session.
+async function dataAccessOk(request, env) {
+  if (adminOk(request, env)) return true;
+  const sessionToken = request.headers.get('X-Session-Token');
+  if (!sessionToken) return false;
+  const sessionData = await kvGet(env, 'session:' + sessionToken);
+  return !!(sessionData && Date.now() <= sessionData.expires);
 }
 
 async function sendEmail(env, { to, subject, html }) {
@@ -395,10 +405,12 @@ export default {
       const isStamhoofdStatus = host === 'status.stamhoofd.app';
       if (!isStamhoofdApi && !isStamhoofdStatus) return fail('Domain not allowed', 403);
 
-      const fwd = new Headers();
+     const fwd = new Headers();
       if (isStamhoofdApi) {
+        if (!(await dataAccessOk(request, env))) return fail('Unauthorized', 401);
         if (!env.STAMHOOFD_API_KEY) return fail('API key not configured', 500);
         fwd.set('Authorization', 'Bearer ' + env.STAMHOOFD_API_KEY);
+      }
       }
       const ct = request.headers.get('Content-Type');
       if (ct) fwd.set('Content-Type', ct);
