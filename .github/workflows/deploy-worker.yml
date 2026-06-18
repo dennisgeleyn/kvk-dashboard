@@ -13,11 +13,13 @@ jobs:
     name: Deploy
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    steps:
-    
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "3.90.0"
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Deploy to Cloudflare Workers
+    uses: cloudflare/wrangler-action@v3
+    with:
+      apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      wranglerVersion: "3.90.0"
