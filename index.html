@@ -1519,10 +1519,11 @@ async function doLogin() {
   const btn = document.querySelector('#loginForm .login-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Versturen...'; }
 
-  try {
-    const res  = await workerFetch('/magic/request', { method: 'POST', body: JSON.stringify({ email }) });
+  const res  = await workerFetch('/magic/request', { method: 'POST', body: JSON.stringify({ email }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    if (res.status === 429) {
+      errEl.textContent = 'Te veel pogingen. Probeer het later opnieuw.';
+    } else if (!res.ok) {
       errEl.textContent = 'Fout bij versturen: ' + (data.error || res.status);
     } else {
       errEl.textContent = '';
@@ -1581,7 +1582,11 @@ async function doRequestAccess() {
 
   try {
     const res  = await workerFetch('/requests', { method: 'POST', body: JSON.stringify({ name, email }) });
-    const data = await res.json();
+    if (res.status === 429) {
+      errEl.textContent = 'Te veel pogingen. Probeer het later opnieuw.';
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
     if (data.ok) {
       okEl.textContent = 'Aanvraag verzonden! Je ontvangt een e-mail zodra de beheerder je goedkeurt.';
       if (data.emailError) console.warn('Admin notification email failed:', data.emailError);
@@ -1809,6 +1814,11 @@ async function doAdminLogin() {
       clearLockout();
       sessionStorage.setItem('kvk_admin_token', pw);
       hideLoginOverlay();
+      return;
+    }
+    if (res.status === 429) {
+      errEl.textContent = 'Te veel pogingen. Probeer het later opnieuw.';
+      if (btn) { btn.disabled = false; btn.textContent = 'Inloggen als beheerder'; }
       return;
     }
   } catch(e) {
