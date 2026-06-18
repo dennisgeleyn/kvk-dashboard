@@ -13,7 +13,8 @@ jobs:
     name: Deploy
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-steps:
+      steps:
+      
   - name: Checkout repository
     uses: actions/checkout@v4
 
