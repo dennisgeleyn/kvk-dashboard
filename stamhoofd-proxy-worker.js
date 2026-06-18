@@ -42,6 +42,25 @@ async function kvGet(env, key)      { try { const v = await env.KVK_STORE.get(ke
 async function kvSet(env, key, val) { await env.KVK_STORE.put(key, JSON.stringify(val)); }
 async function kvDel(env, key)      { await env.KVK_STORE.delete(key); }
 
+// Generic rate limiter, backed by KV. Tracks attempt counts per key within
+// a rolling time window. Used to slow down password guessing and email
+// spam — not airtight (KV is eventually consistent across regions), but
+// enough of a speed bump to stop casual abuse.
+async function rateLimited(env, key, maxAttempts, windowMs) {
+  const now = Date.now();
+  let data = await kvGet(env, key);
+  if (!data || now > data.resetAt) {
+    data = { count: 0, resetAt: now + windowMs };
+  }
+  data.count++;
+  await kvSet(env, key, data);
+  return data.count > maxAttempts;
+}
+
+function clientIp(request) {
+  return request.headers.get('CF-Connecting-IP') || 'unknown';
+}
+
 function adminOk(request, env) {
   return request.headers.get('X-Admin-Token') === env.ADMIN_PASSWORD;
 }
@@ -105,6 +124,9 @@ export default {
     // /auth POST — admin password check (unchanged)
     // ════════════════════════════════════════════════════════
     if (path === '/auth' && request.method === 'POST') {
+      if (await rateLimited(env, 'ratelimit:auth:' + clientIp(request), 5, 15 * 60 * 1000)) {
+        return fail('Too many attempts. Try again later.', 429);
+      }
       try {
         const { password } = await request.json();
         if (!env.ADMIN_PASSWORD) return fail('Not configured', 500);
@@ -118,6 +140,9 @@ export default {
     // Only sends if email is in the approved users list
     // ════════════════════════════════════════════════════════
     if (path === '/magic/request' && request.method === 'POST') {
+      if (await rateLimited(env, 'ratelimit:magic:' + clientIp(request), 5, 60 * 60 * 1000)) {
+        return fail('Too many attempts. Try again later.', 429);
+      }
       try {
         const { email } = await request.json();
         if (!email || !email.includes('@')) return fail('Invalid email');
@@ -244,6 +269,9 @@ export default {
     // Body: { name, email }  (full email, hashed in worker)
     // ════════════════════════════════════════════════════════
     if (path === '/requests' && request.method === 'POST') {
+      if (await rateLimited(env, 'ratelimit:requests:' + clientIp(request), 5, 60 * 60 * 1000)) {
+        return fail('Too many attempts. Try again later.', 429);
+      }
       try {
         const { name, email } = await request.json();
         if (!name || !email || !email.includes('@')) return fail('Missing fields');
