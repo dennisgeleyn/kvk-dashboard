@@ -163,8 +163,9 @@ Click **Verwijderen** next to a user in **Gebruikersbeheer**. Their active sessi
 
 | File | Description |
 |---|---|
-| `index.html` | Complete dashboard — single file, no build required, logos embedded |
-| `stamhoofd-proxy-worker.js` | Cloudflare Worker: API proxy, admin auth, magic links, KV user management |
+| `index.html` | Dashboard markup — links to `styles.css` and `app.js`, logos embedded |
+| `styles.css` | All dashboard styling — extracted from `index.html` for maintainability |
+| `app.js` | All dashboard logic — config, auth, data fetching, UI rendering || `stamhoofd-proxy-worker.js` | Cloudflare Worker: API proxy, admin auth, magic links, KV user management |
 | `wrangler.toml` | Wrangler config for automated Cloudflare deployments |
 | `.github/workflows/deploy-worker.yml` | GitHub Actions workflow — auto-deploys worker on push |
 | `README.md` | This file |
