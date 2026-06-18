@@ -14,13 +14,14 @@
 //   Bind in:   Worker → Settings → Variables → KV Namespace Bindings
 
 const ALLOWED_ORIGIN = '*';
+const ALLOWED_HOSTS  = ['api.stamhoofd.app', 'status.stamhoofd.app'];
 const TOKEN_TTL_MS   = 15 * 60 * 1000; // magic links expire after 15 minutes
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // sessions last 7 days
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token, X-Session-Token',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Token',
 };
 
 const json  = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
@@ -44,16 +45,6 @@ async function kvDel(env, key)      { await env.KVK_STORE.delete(key); }
 
 function adminOk(request, env) {
   return request.headers.get('X-Admin-Token') === env.ADMIN_PASSWORD;
-}
-
-// Used to gate access to the Stamhoofd data proxy: either a valid admin
-// token, or a valid (non-expired) regular user session.
-async function dataAccessOk(request, env) {
-  if (adminOk(request, env)) return true;
-  const sessionToken = request.headers.get('X-Session-Token');
-  if (!sessionToken) return false;
-  const sessionData = await kvGet(env, 'session:' + sessionToken);
-  return !!(sessionData && Date.now() <= sessionData.expires);
 }
 
 async function sendEmail(env, { to, subject, html }) {
@@ -380,45 +371,49 @@ export default {
       } catch(e) { return json({ ok: false, error: e.message }, 502); }
     }
 
- // ════════════════════════════════════════════════════════
-    // /proxy — Stamhoofd API CORS proxy
+   // ════════════════════════════════════════════════════════
+    // /config — centrally managed orgId/webshopId
+    // GET  is public (these IDs aren't secret — they're needed by every
+    //      visitor's browser to know which webshop to load).
+    // POST requires a valid admin token, so only the admin can change
+    //      which webshop the dashboard points everyone at.
+    // ════════════════════════════════════════════════════════
+    if (path === '/config' && request.method === 'GET') {
+      const config = await kvGet(env, 'app:config') || {};
+      return json(config);
+    }
+
+    if (path === '/config' && request.method === 'POST') {
+      if (!adminOk(request, env)) return fail('Unauthorized', 401);
+      try {
+        const { orgId, webshopId } = await request.json();
+        if (!orgId || !webshopId) return fail('orgId and webshopId are required');
+        const config = { orgId: String(orgId).trim(), webshopId: String(webshopId).trim() };
+        await kvSet(env, 'app:config', config);
+        return json({ ok: true, config });
+      } catch(e) { return fail('Bad request'); }
+    }
+   
+    // ════════════════════════════════════════════════════════
+    // /proxy — Stamhoofd API CORS proxy (unchanged)
     // ════════════════════════════════════════════════════════
     if (path === '/proxy') {
-      // Only GET is ever needed by the dashboard — also closes off the
-      // open-relay risk of forwarding arbitrary POST/PUT/DELETE bodies.
-      if (request.method !== 'GET') return fail('Method not allowed', 405);
-
-      const targetParam = url.searchParams.get('url');
-      if (!targetParam) return fail('Missing ?url= parameter');
-
-      let target;
-      try { target = new URL(targetParam); }
-      catch(e) { return fail('Invalid url parameter', 400); }
-
-      // Strict hostname check — NOT a substring check. A substring check
-      // (target.includes('api.stamhoofd.app')) can be defeated with e.g.
-      // "https://attacker.com/?x=api.stamhoofd.app", which would still
-      // match the substring while actually sending the request — and the
-      // Stamhoofd API key — to attacker.com.
-      const host = target.hostname;
-      const isStamhoofdApi = host === 'api.stamhoofd.app' || host.endsWith('.api.stamhoofd.app');
-      const isStamhoofdStatus = host === 'status.stamhoofd.app';
-      const isGitHub = host === 'dennisgeleyn.github.io';
-      const isWorkersDev = host === 'dennisgeleyn.workers.dev' || host.endsWith('.dennisgeleyn.workers.dev');
-      if (!isStamhoofdApi && !isStamhoofdStatus && !isWorkerDev && !isGitHub) return fail('Domain not allowed', 403);
-
-     const fwd = new Headers();
-      if (isStamhoofdApi) {
-        if (!(await dataAccessOk(request, env))) return fail('Unauthorized', 401);
+      const target = url.searchParams.get('url');
+      if (!target) return fail('Missing ?url= parameter');
+      if (!ALLOWED_HOSTS.some(h => target.includes(h))) return fail('Domain not allowed', 403);
+      const fwd = new Headers();
+      if (target.includes('api.stamhoofd.app')) {
         if (!env.STAMHOOFD_API_KEY) return fail('API key not configured', 500);
         fwd.set('Authorization', 'Bearer ' + env.STAMHOOFD_API_KEY);
-      }
       }
       const ct = request.headers.get('Content-Type');
       if (ct) fwd.set('Content-Type', ct);
       let res;
       try {
-        res = await fetch(new Request(target.toString(), { method: 'GET', headers: fwd }));
+        res = await fetch(new Request(target, {
+          method: request.method, headers: fwd,
+          body: request.method !== 'GET' ? request.body : undefined,
+        }));
       } catch(e) { return fail('Proxy error: ' + e.message, 502); }
       const body = await res.text();
       return new Response(body, {
