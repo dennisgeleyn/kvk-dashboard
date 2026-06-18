@@ -20,6 +20,7 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 - **Auto-refresh** every 5 minutes
 - **Mobile-friendly** — responsive layout, wide logo on desktop / square logo on mobile
 - **Debug panel** — visible to admins only
+- **Centrally managed settings** — admin sets `orgId`/`webshopId` once via ⚙ Instellingen; every visitor immediately sees the same values, no per-browser config drift
 
 ---
 
@@ -28,9 +29,10 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 ```
 Browser → Cloudflare Worker → Stamhoofd API
                 ↕
-           Cloudflare KV  (users, requests, sessions, magic link tokens)
+           Cloudflare KV  (users, requests, sessions, magic link tokens,
+                           app config, rate-limit counters)
                 ↕
-             Resend API  (magic link emails + admin notifications)
+             Brevo API  (magic link emails + admin notifications)
 ```
 
 ### How login works (magic links)
@@ -53,8 +55,11 @@ Admin login uses a password (stored as a Worker secret, never in source code).
 - **Admin password** — Cloudflare Worker secret, validated server-side
 - **No passwords stored** for regular users — magic link tokens only
 - **Sessions in KV** — invalidated on logout, expire server-side after 7 days
-- **Login lockout** — 5 failed admin attempts triggers a 15-minute lockout
-- **Email addresses** — only SHA-256 hashes stored in KV; display hints masked (`den***@gmail.com`)
+- **`/proxy` requires login** — every request to the real Stamhoofd API needs a valid admin or session token; this is checked by the Worker itself, not just enforced by the dashboard's login screen
+- **Strict host validation on `/proxy`** — the Worker only forwards requests (and attaches the API key) when the actual hostname is `api.stamhoofd.app` or `status.stamhoofd.app`, checked via `new URL().hostname` rather than a substring match
+- **Rate limiting** — `/auth`, `/magic/request`, and `/requests` allow at most 5 attempts per IP per time window (15 minutes for admin login, 1 hour for the others), enforced server-side in KV; the client-side lockout is a UX nicety on top of this, not the real protection
+- **Centrally managed config** — `orgId`/`webshopId` live in KV via `/config`, writable only with a valid admin token, so every visitor sees the same admin-controlled values
+- **Email addresses** — display hints are masked (`den***@gmail.com`) and lookups use a SHA-256 hash, but the actual address is also stored in KV (needed to send and resend magic links) — this is pseudonymization for display, not hash-only storage
 
 ---
 
@@ -111,7 +116,7 @@ From then on, every push to `main` that touches the worker file deploys automati
 
 ### 3. Configure the dashboard
 
-Open `index.html` and update the `DEFAULTS` block near the top of the script:
+Open `index.html` and update the `DEFAULTS` block near the top of the script. `proxyUrl` is the one that actually matters here — it must point at your deployed Worker, since the dashboard needs it just to reach `/config`. `orgId` and `webshopId` are only the initial fallback; the live values are managed centrally afterward via ⚙ **Instellingen** as admin, which writes them to the Worker's KV store so every visitor sees the same values:
 
 ```js
 const DEFAULTS = {
@@ -120,6 +125,8 @@ const DEFAULTS = {
   proxyUrl:  'https://your-worker.workers.dev',
 };
 ```
+
+> After deploying, log in as admin once and click **Opslaan** in ⚙ Instellingen — even with the unchanged values — to write them to the Worker for the first time. Until then, every visitor falls back to the hardcoded `DEFAULTS` above.
 
 ### 4. Publish via GitHub Pages
 
