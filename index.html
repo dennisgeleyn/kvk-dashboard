@@ -799,9 +799,25 @@ const DEFAULTS = {
   proxyUrl: 'https://wandering-boat-05cb.dennisgeleyn.workers.dev',
 };
 
-// Merge saved settings from localStorage over defaults
+// Merge saved settings from localStorage over defaults.
+// NOTE: orgId/webshopId are intentionally excluded here — those are now
+// centrally managed by the admin via the Worker's /config endpoint (see
+// loadRemoteConfig below), so every visitor sees the same values instead
+// of whatever happens to be cached in their own browser.
 const saved = JSON.parse(localStorage.getItem('theatre_dashboard_config') || '{}');
-const CONFIG = { ...DEFAULTS, ...saved };
+const CONFIG = { ...DEFAULTS, proxyUrl: saved.proxyUrl || DEFAULTS.proxyUrl };
+
+// Fetch the centrally-stored orgId/webshopId from the Worker. Falls back to
+// DEFAULTS (above) if the Worker has nothing stored yet, or if the request
+// fails for any reason, so the dashboard keeps working either way.
+async function loadRemoteConfig() {
+  try {
+    const res = await workerFetch('/config');
+    const data = await res.json();
+    if (data.orgId) CONFIG.orgId = data.orgId;
+    if (data.webshopId) CONFIG.webshopId = data.webshopId;
+  } catch(e) { /* keep DEFAULTS */ }
+}
 
 function apiBase() {
   return `https://${CONFIG.orgId}.api.stamhoofd.app/v247`;
@@ -856,16 +872,36 @@ function toggleConfig() {
   }
 }
 
-function saveConfig() {
-  CONFIG.orgId = document.getElementById('cfgOrgId').value.trim();
-  CONFIG.webshopId = document.getElementById('cfgWebshopId').value.trim();
-  CONFIG.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
-  // Persist to localStorage so settings survive page reloads
-  localStorage.setItem('theatre_dashboard_config', JSON.stringify({
-    orgId: CONFIG.orgId,
-    webshopId: CONFIG.webshopId,
-    proxyUrl: CONFIG.proxyUrl,
-  }));
+async function saveConfig() {
+  const orgId     = document.getElementById('cfgOrgId').value.trim();
+  const webshopId = document.getElementById('cfgWebshopId').value.trim();
+  const proxyUrl  = document.getElementById('cfgProxyUrl').value.trim();
+
+  // proxyUrl is a local convenience setting (which Worker to talk to) —
+  // keep that per-browser.
+  CONFIG.proxyUrl = proxyUrl;
+  localStorage.setItem('theatre_dashboard_config', JSON.stringify({ proxyUrl }));
+
+  // orgId/webshopId are centrally managed: push to the Worker so every
+  // visitor immediately gets the new values, not just this browser.
+  try {
+    const res = await workerFetch('/config', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ orgId, webshopId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert('❌ Opslaan mislukt: ' + (data.error || res.statusText));
+      return;
+    }
+    CONFIG.orgId = orgId;
+    CONFIG.webshopId = webshopId;
+  } catch(e) {
+    alert('❌ Netwerkfout bij opslaan: ' + e.message);
+    return;
+  }
+
   toggleConfig();
   loadData();
 }
@@ -1855,6 +1891,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('liveDate').textContent = new Date().toLocaleDateString('nl-BE', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
+
+  // Load the centrally-managed orgId/webshopId before anything else,
+  // so the dashboard (and the admin settings panel) reflect the
+  // admin's current setting, not a stale per-browser cache.
+  await loadRemoteConfig();
 
   // Check for existing session; if none, login overlay stays visible
   await checkSession();
