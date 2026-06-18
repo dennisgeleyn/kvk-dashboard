@@ -403,7 +403,9 @@ export default {
       const host = target.hostname;
       const isStamhoofdApi = host === 'api.stamhoofd.app' || host.endsWith('.api.stamhoofd.app');
       const isStamhoofdStatus = host === 'status.stamhoofd.app';
-      if (!isStamhoofdApi && !isStamhoofdStatus) return fail('Domain not allowed', 403);
+      const isGitHub = host === 'dennisgeleyn.github.io';
+      const isWorkersDev = host === 'dennisgeleyn.workers.dev' || host.endsWith('.dennisgeleyn.workers.dev');
+      if (!isStamhoofdApi && !isStamhoofdStatus && !isWorkerDev && !isGitHub) return fail('Domain not allowed', 403);
 
      const fwd = new Headers();
       if (isStamhoofdApi) {
