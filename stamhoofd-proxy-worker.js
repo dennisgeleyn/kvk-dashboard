@@ -14,7 +14,6 @@
 //   Bind in:   Worker → Settings → Variables → KV Namespace Bindings
 
 const ALLOWED_ORIGIN = '*';
-const ALLOWED_HOSTS  = ['api.stamhoofd.app', 'status.stamhoofd.app'];
 const TOKEN_TTL_MS   = 15 * 60 * 1000; // magic links expire after 15 minutes
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // sessions last 7 days
 
@@ -371,15 +370,33 @@ export default {
       } catch(e) { return json({ ok: false, error: e.message }, 502); }
     }
 
-    // ════════════════════════════════════════════════════════
-    // /proxy — Stamhoofd API CORS proxy (unchanged)
+ // ════════════════════════════════════════════════════════
+    // /proxy — Stamhoofd API CORS proxy
     // ════════════════════════════════════════════════════════
     if (path === '/proxy') {
-      const target = url.searchParams.get('url');
-      if (!target) return fail('Missing ?url= parameter');
-      if (!ALLOWED_HOSTS.some(h => target.includes(h))) return fail('Domain not allowed', 403);
+      // Only GET is ever needed by the dashboard — also closes off the
+      // open-relay risk of forwarding arbitrary POST/PUT/DELETE bodies.
+      if (request.method !== 'GET') return fail('Method not allowed', 405);
+
+      const targetParam = url.searchParams.get('url');
+      if (!targetParam) return fail('Missing ?url= parameter');
+
+      let target;
+      try { target = new URL(targetParam); }
+      catch(e) { return fail('Invalid url parameter', 400); }
+
+      // Strict hostname check — NOT a substring check. A substring check
+      // (target.includes('api.stamhoofd.app')) can be defeated with e.g.
+      // "https://attacker.com/?x=api.stamhoofd.app", which would still
+      // match the substring while actually sending the request — and the
+      // Stamhoofd API key — to attacker.com.
+      const host = target.hostname;
+      const isStamhoofdApi = host === 'api.stamhoofd.app' || host.endsWith('.api.stamhoofd.app');
+      const isStamhoofdStatus = host === 'status.stamhoofd.app';
+      if (!isStamhoofdApi && !isStamhoofdStatus) return fail('Domain not allowed', 403);
+
       const fwd = new Headers();
-      if (target.includes('api.stamhoofd.app')) {
+      if (isStamhoofdApi) {
         if (!env.STAMHOOFD_API_KEY) return fail('API key not configured', 500);
         fwd.set('Authorization', 'Bearer ' + env.STAMHOOFD_API_KEY);
       }
@@ -387,10 +404,7 @@ export default {
       if (ct) fwd.set('Content-Type', ct);
       let res;
       try {
-        res = await fetch(new Request(target, {
-          method: request.method, headers: fwd,
-          body: request.method !== 'GET' ? request.body : undefined,
-        }));
+        res = await fetch(new Request(target.toString(), { method: 'GET', headers: fwd }));
       } catch(e) { return fail('Proxy error: ' + e.message, 502); }
       const body = await res.text();
       return new Response(body, {
