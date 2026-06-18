@@ -832,7 +832,15 @@ function proxied(url) {
 }
 
 function headers() {
-  return { 'Content-Type': 'application/json' };
+  const h = { 'Content-Type': 'application/json' };
+  const adminToken = sessionStorage.getItem('kvk_admin_token');
+  if (adminToken) {
+    h['X-Admin-Token'] = adminToken;
+  } else {
+    const sessionToken = getSessionToken();
+    if (sessionToken) h['X-Session-Token'] = sessionToken;
+  }
+  return h;
 }
 
 // ─── UI HELPERS ───────────────────────────────────────────
