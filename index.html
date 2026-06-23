@@ -48,9 +48,10 @@
       <label>Organisation ID</label>
       <input type="text" id="cfgOrgId" placeholder="uuid...">
     </div>
-    <div class="config-field">
-      <label>Webshop ID</label>
-      <input type="text" id="cfgWebshopId" placeholder="uuid...">
+    <div class="config-field" style="grid-column:1/-1">
+      <label>Webshops <span style="font-weight:400;opacity:0.6">(max 3)</span></label>
+      <div id="cfgWebshops" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.5rem"></div>
+      <button class="btn btn-small" onclick="addWebshopField()">+ Webshop toevoegen</button>
     </div>
     <div class="config-field">
       <label>Proxy URL (voor GitHub Pages)</label>
@@ -80,8 +81,11 @@
   </div>
 </div>
 
+<!-- Webshop tabs (hidden when only 1 webshop) -->
+<div id="webshopTabs" class="webshop-tabs"></div>
+
 <!-- KPIs -->
-<div class="kpi-grid" id="kpiGrid">
+<div class="kpi-grid" id="kpiGrid"><div class="kpi-grid" id="kpiGrid">
   <div class="kpi"><div class="kpi-label">Totale omzet</div><div class="kpi-value"><span class="skeleton" style="width:100px">&nbsp;</span></div></div>
   <div class="kpi"><div class="kpi-label">Tickets verkocht</div><div class="kpi-value"><span class="skeleton" style="width:80px">&nbsp;</span></div></div>
   <div class="kpi"><div class="kpi-label">Betalingen</div><div class="kpi-value"><span class="skeleton" style="width:60px">&nbsp;</span></div></div>
