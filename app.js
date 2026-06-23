@@ -229,7 +229,8 @@ async function loadData() {
 // Field accessors for Stamhoofd v2 API.
   // Payment info moved from o.payment to o.balanceItems[0].payments[0].payment.
   const getPayment  = o => o.balanceItems?.[0]?.payments?.[0]?.payment ?? null;
-  const getPrice    = o => (o.balanceItems ?? []).reduce((s, b) => s + (b.pricePaid ?? 0), 0);  const getStatus   = o => getPayment(o)?.status ?? 'Unknown';
+  const getPrice    = o => (o.balanceItems ?? []).reduce((s, b) => s + (b.unitPrice ?? 0), 0);
+  const getPricePaid = o => (o.balanceItems ?? []).reduce((s, b) => s + (b.pricePaid ?? 0), 0);  const getStatus   = o => getPayment(o)?.status ?? 'Unknown';
   const getItems    = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
   const getOrderNr  = o => {
@@ -253,8 +254,8 @@ const uniqueOrders = orders.filter(o => {
 });
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
 const totalRevenue = uniqueOrders.reduce((s, o) => s + getPrice(o), 0);
-const paidRevenue = paid.reduce((s, o) => s + getPrice(o), 0);
-const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
+const paidRevenue = uniqueOrders.reduce((s, o) => s + getPricePaid(o), 0);
+    const CANCELLED_STATUSES = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
 const activeOrders = uniqueOrders.filter(o => !CANCELLED_STATUSES.includes(getStatus(o)));
  let totalTickets = 0;
 activeOrders.forEach(o => getItems(o).forEach(i => { totalTickets += (i.amount || 0); }));
