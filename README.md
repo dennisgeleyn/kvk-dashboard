@@ -35,7 +35,7 @@ Browser → Cloudflare Worker → Stamhoofd API
              Brevo API  (magic link emails + admin notifications)
 
 ```
-> **Stamhoofd API:** currently pinned to `v399`. The version number lives in one place — `apiBase()` in `app.js`. Stamhoofd increments this number on breaking changes and does not guarantee backward compatibility, so check after major Stamhoofd updates. Orders are fetched via `/webshop/orders?filter=...` (not `/webshop/{id}/orders` as in v1); prices are in units of 1/10000 of a euro (e.g. `300000` = €30,00).
+- **Stamhoofd API:** currently pinned to `v399`. The version number lives in one place — `apiBase()` in `app.js`. Stamhoofd increments this number on breaking changes and does not guarantee backward compatibility, so check after major Stamhoofd updates. Orders are fetched via `/webshop/orders?filter=...` (not `/webshop/{id}/orders` as in v1); prices are in units of 1/10000 of a euro (e.g. `300000` = €30,00).
 
 ### How login works (magic links)
 
