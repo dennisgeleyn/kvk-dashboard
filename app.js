@@ -31,7 +31,7 @@ async function loadRemoteConfig() {
 }
 
 function apiBase() {
-  return `https://${CONFIG.orgId}.api.stamhoofd.app/v247`;
+  return `https://${CONFIG.orgId}.api.stamhoofd.app/v399`;
 }
 
 // Wraps a URL through the CORS proxy if one is configured
