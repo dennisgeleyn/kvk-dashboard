@@ -415,17 +415,27 @@ export default {
     // POST requires a valid admin token, so only the admin can change
     //      which webshop the dashboard points everyone at.
     // ════════════════════════════════════════════════════════
-    if (path === '/config' && request.method === 'GET') {
+if (path === '/config' && request.method === 'GET') {
       const config = await kvGet(env, 'app:config') || {};
+      // Normalise: if old single-webshop format, migrate on the fly
+      if (config.webshopId && !config.webshops) {
+        config.webshops = [{ id: config.webshopId, name: 'Webshop' }];
+      }
       return json(config);
     }
 
     if (path === '/config' && request.method === 'POST') {
       if (!adminOk(request, env)) return fail('Unauthorized', 401);
       try {
-        const { orgId, webshopId } = await request.json();
-        if (!orgId || !webshopId) return fail('orgId and webshopId are required');
-        const config = { orgId: String(orgId).trim(), webshopId: String(webshopId).trim() };
+        const { orgId, webshops } = await request.json();
+        if (!orgId) return fail('orgId is required');
+        if (!Array.isArray(webshops) || webshops.length === 0) return fail('webshops array is required');
+        if (webshops.length > 3) return fail('Maximum 3 webshops allowed');
+        const cleanWebshops = webshops.map(w => ({
+          id:   String(w.id   || '').trim(),
+          name: String(w.name || '').trim() || 'Webshop',
+        })).filter(w => w.id);
+        const config = { orgId: String(orgId).trim(), webshops: cleanWebshops };
         await kvSet(env, 'app:config', config);
         return json({ ok: true, config });
       } catch(e) { return fail('Bad request'); }
