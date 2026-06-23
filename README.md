@@ -8,7 +8,7 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 
 ## Features
 
-- **Live sales data** — fetches all orders via the Stamhoofd API with full pagination and deduplication
+- **Live sales data** — fetches all orders via the Stamhoofd v2 API using keyset-cursor pagination
 - **KPI overview** — total revenue, paid revenue, tickets sold, average order value
 - **Per-show breakdown** — tickets sold, capacity, seats remaining, and a traffic light:
   - 🟢 **Vrij** — fewer than 194 tickets sold
@@ -33,6 +33,7 @@ Browser → Cloudflare Worker → Stamhoofd API
                            app config, rate-limit counters)
                 ↕
              Brevo API  (magic link emails + admin notifications)
+> **Stamhoofd API:** currently pinned to `v399`. The version number lives in one place — `apiBase()` in `app.js`. Stamhoofd increments this number on breaking changes and does not guarantee backward compatibility, so check after major Stamhoofd updates. Orders are fetched via `/webshop/orders?filter=...` (not `/webshop/{id}/orders` as in v1); prices are in units of 1/10000 of a euro (e.g. `300000` = €30,00).
 ```
 
 ### How login works (magic links)
