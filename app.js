@@ -229,8 +229,7 @@ async function loadData() {
 // Field accessors for Stamhoofd v2 API.
   // Payment info moved from o.payment to o.balanceItems[0].payments[0].payment.
   const getPayment  = o => o.balanceItems?.[0]?.payments?.[0]?.payment ?? null;
-  const getPrice    = o => getPayment(o)?.price ?? 0;
-  const getStatus   = o => getPayment(o)?.status ?? 'Unknown';
+  const getPrice    = o => (o.balanceItems ?? []).reduce((s, b) => s + (b.pricePaid ?? 0), 0);  const getStatus   = o => getPayment(o)?.status ?? 'Unknown';
   const getItems    = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
   const getOrderNr  = o => {
