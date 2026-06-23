@@ -1,12 +1,9 @@
 // ─── CONFIG ───────────────────────────────────────────────
 const DEFAULTS = {
   orgId: 'd42b36a2-a20f-4930-b677-5d62599c90b3',
-  webshopId: '07e841fb-25a0-478d-a1a4-4d09df824938',
+  webshops: [{ id: '07e841fb-25a0-478d-a1a4-4d09df824938', name: 'Webshop' }],
 
   capacity: 240,
-  // After deploying the Cloudflare Worker, paste its URL here
-  // e.g. 'https://stamhoofd-proxy.yourname.workers.dev'
-  // Leave empty to call the Stamhoofd API directly (works locally, not on GitHub Pages)
   proxyUrl: 'https://wandering-boat-05cb.dennisgeleyn.workers.dev',
 };
 
@@ -26,7 +23,11 @@ async function loadRemoteConfig() {
     const res = await workerFetch('/config');
     const data = await res.json();
     if (data.orgId) CONFIG.orgId = data.orgId;
-    if (data.webshopId) CONFIG.webshopId = data.webshopId;
+    if (Array.isArray(data.webshops) && data.webshops.length > 0) {
+      CONFIG.webshops = data.webshops;
+    } else if (data.webshopId) {
+      CONFIG.webshops = [{ id: data.webshopId, name: 'Webshop' }];
+    }
   } catch(e) { /* keep DEFAULTS */ }
 }
 
@@ -85,17 +86,43 @@ function toggleConfig() {
   const visible = p.classList.toggle('visible');
   if (visible) {
     document.getElementById('cfgOrgId').value = CONFIG.orgId;
-    document.getElementById('cfgWebshopId').value = CONFIG.webshopId;
     document.getElementById('cfgProxyUrl').value = CONFIG.proxyUrl || '';
+    const container = document.getElementById('cfgWebshops');
+    container.innerHTML = '';
+    (CONFIG.webshops || []).forEach(ws => addWebshopField(ws));
     renderUserList();
   }
 }
 
-async function saveConfig() {
-  const orgId     = document.getElementById('cfgOrgId').value.trim();
-  const webshopId = document.getElementById('cfgWebshopId').value.trim();
-  const proxyUrl  = document.getElementById('cfgProxyUrl').value.trim();
+function addWebshopField(ws = { name: '', id: '' }) {
+  const container = document.getElementById('cfgWebshops');
+  if (container.children.length >= 3) {
+    alert('Maximum 3 webshops toegestaan.');
+    return;
+  }
+  const div = document.createElement('div');
+  div.className = 'webshop-row';
+  div.innerHTML = `
+    <input type="text" class="ws-name" placeholder="Naam (bv. Ladies Night)" value="${escHtml(ws.name || '')}">
+    <input type="text" class="ws-id"   placeholder="Webshop ID (uuid)" value="${escHtml(ws.id || '')}">
+    <button class="btn btn-small" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(div);
+}
 
+async function saveConfig() {
+  const orgId    = document.getElementById('cfgOrgId').value.trim();
+  const proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
+
+  const webshops = [...document.querySelectorAll('#cfgWebshops .webshop-row')].map(el => ({
+    name: el.querySelector('.ws-name').value.trim(),
+    id:   el.querySelector('.ws-id').value.trim(),
+  })).filter(ws => ws.id);
+
+  if (webshops.length === 0) {
+    alert('Voeg minstens één webshop toe.');
+    return;
+  }
   // proxyUrl is a local convenience setting (which Worker to talk to) —
   // keep that per-browser.
   CONFIG.proxyUrl = proxyUrl;
@@ -107,15 +134,15 @@ async function saveConfig() {
     const res = await workerFetch('/config', {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ orgId, webshopId }),
+      body: JSON.stringify({ orgId, webshops }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert('❌ Opslaan mislukt: ' + (data.error || res.statusText));
       return;
     }
-    CONFIG.orgId = orgId;
-    CONFIG.webshopId = webshopId;
+    CONFIG.orgId    = orgId;
+    CONFIG.webshops = webshops;
   } catch(e) {
     alert('❌ Netwerkfout bij opslaan: ' + e.message);
     return;
@@ -139,7 +166,7 @@ async function fetchWithTimeout(url, options, ms) {
   }
 }
 
-async function fetchAllOrders() {
+async function fetchAllOrders(webshopId) {
   // Stamhoofd v2 API: keyset-cursor pagination via filter + sort.
   // The webshopId goes in the filter object (not the URL path).
   // Cursor = last item's { updatedAt, number }; each page requests items
@@ -151,7 +178,7 @@ async function fetchAllOrders() {
 
   while (true) {
     const filter = {
-      webshopId: CONFIG.webshopId,
+      webshopId: webshopId,
       $or: [
         { updatedAt: { $gt:  { $: '$date', value: cursorUpdatedAt } } },
         { $and: [
@@ -203,20 +230,59 @@ async function fetchAllOrders() {
   return allOrders;
 }
 
-async function fetchWebshop() {
-  const res = await fetch(proxied(`${apiBase()}/webshop/${CONFIG.webshopId}`), { headers: headers() });
+async function fetchWebshop(webshopId) {
+  const res = await fetch(proxied(`${apiBase()}/webshop/${webshopId}`), { headers: headers() });
   if (!res.ok) throw new Error(`Webshop API ${res.status}: ${res.statusText}`);
   return res.json();
+}
+
+// Per-webshop data cache: [{ orders, webshop }, ...]
+let _allWebshopData = [];
+let _activeTabIndex  = 0;
+
+function switchWebshopTab(index) {
+  _activeTabIndex = index;
+  document.querySelectorAll('.ws-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
+  });
+  const { orders, webshop } = _allWebshopData[index];
+  renderDashboard(orders, webshop);
+}
+
+function renderWebshopTabs() {
+  const container = document.getElementById('webshopTabs');
+  if (!container) return;
+  if (_allWebshopData.length <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = _allWebshopData.map((_, i) => {
+    const name = CONFIG.webshops[i]?.name || ('Webshop ' + (i + 1));
+    return `<button class="ws-tab${i === _activeTabIndex ? ' active' : ''}" onclick="switchWebshopTab(${i})">${name}</button>`;
+  }).join('');
 }
 
 async function loadData() {
   setStatus('⏳ Data ophalen van Stamhoofd...', 'loading');
   try {
-    // Load sequentially on mobile to avoid memory pressure
-    const orders = await fetchAllOrders();
-    const webshop = await fetchWebshop();
-    renderDashboard(orders, webshop);
-    setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + orders.length + ' bestellingen geladen', 'success');
+    const webshops = CONFIG.webshops || [];
+    if (webshops.length === 0) throw new Error('Geen webshops geconfigureerd');
+
+    const results = await Promise.all(
+      webshops.map(ws => Promise.all([
+        fetchAllOrders(ws.id),
+        fetchWebshop(ws.id),
+      ]).then(([orders, webshop]) => ({ orders, webshop })))
+    );
+
+    _allWebshopData = results;
+    if (_activeTabIndex >= results.length) _activeTabIndex = 0;
+
+    renderWebshopTabs();
+    switchWebshopTab(_activeTabIndex);
+
+    const totalOrders = results.reduce((s, r) => s + r.orders.length, 0);
+    setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + totalOrders + ' bestellingen geladen', 'success');
   } catch (err) {
     setStatus('✗ Fout: ' + err.message, 'error');
     renderFallback();
