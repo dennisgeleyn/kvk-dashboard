@@ -298,7 +298,6 @@ async function loadData() {
     const ot = document.getElementById('orderTable');
     if (ot) ot.innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen data beschikbaar</div></td></tr>';
   }
-  }
 }
 
 // ─── RENDER ──────────────────────────────────────────────
