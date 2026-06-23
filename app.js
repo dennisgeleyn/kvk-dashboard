@@ -226,29 +226,30 @@ async function loadData() {
 // ─── RENDER ──────────────────────────────────────────────
   function renderDashboard(orders, webshop) {
       window._orders = orders; 
-  // Field accessors based on confirmed API response structure
-  const getPrice = o => o.payment?.price ?? 0;
-  const getStatus = o => {
-    if (['Canceled', 'Deleted'].includes(o.status)) return o.status;
-    return o.payment?.status ?? o.status ?? 'Unknown';
-  };
-  const getItems = o => o.data?.cart?.items ?? [];
+// Field accessors for Stamhoofd v2 API.
+  // Payment info moved from o.payment to o.balanceItems[0].payments[0].payment.
+  const getPayment  = o => o.balanceItems?.[0]?.payments?.[0]?.payment ?? null;
+  const getPrice    = o => getPayment(o)?.price ?? 0;
+  const getStatus   = o => getPayment(o)?.status ?? 'Unknown';
+  const getItems    = o => o.data?.cart?.items ?? [];
   const getCreatedAt = o => o.createdAt ?? o.validAt ?? 0;
-  const getOrderNr = o => {
+  const getOrderNr  = o => {
+    if (o.number != null) return String(o.number);
     const desc = o.balanceItems?.[0]?.description ?? '';
     const m = desc.match(/#(\d+)/);
     return m ? m[1] : null;
   };
-  const getCustomer = o => o.data?.customer ?? null;
-  const getMethod = o => {
-  const method = o.payment?.method ?? o.data?.paymentMethod ?? '—';
-  const labels = { Transfer: 'Overschrijving' };
-  return labels[method] ?? method;
-};
-  
+  const getCustomer = o => o.data?.customer ?? getPayment(o)?.customer ?? null;
+  const getMethod   = o => {
+    const method = getPayment(o)?.method ?? o.data?.paymentMethod ?? '—';
+    const labels = { Transfer: 'Overschrijving' };
+    return labels[method] ?? method;
+  };
+
 const uniqueOrders = orders.filter(o => {
-  if (o.status === 'Deleted') return false;
-  if (o.status === 'Canceled' && o.payment?.status !== 'Succeeded') return false;
+  const status = getStatus(o);
+  if (status === 'Deleted') return false;
+  if (status === 'Canceled') return false;
   return true;
 });
 const paid = uniqueOrders.filter(o => getStatus(o) === 'Succeeded');
@@ -301,9 +302,10 @@ function renderShows(webshop, orders) {
   const CANCELLED = ['Failed', 'Canceled', 'Refunded', 'Disputed', 'Deleted'];
  const soldPerProduct = {};
 orders.forEach(o => {
-  if (o.status === 'Deleted') return;
-  if (o.status === 'Canceled') return;
-  if (['Failed', 'Refunded', 'Disputed'].includes(o.payment?.status)) return;
+ const _s = (o.balanceItems?.[0]?.payments?.[0]?.payment?.status ?? '');
+  if (_s === 'Deleted') return;
+  if (_s === 'Canceled') return;
+  if (['Failed', 'Refunded', 'Disputed'].includes(_s)) return;
   (o.data?.cart?.items ?? []).forEach(item => {
     const pid = item.product?.id ?? item.productId;
     if (pid) soldPerProduct[pid] = (soldPerProduct[pid] || 0) + (item.amount || 0);
@@ -409,7 +411,7 @@ function renderRevenueChart(orders, getPrice, getCreatedAt) {
   const barW = Math.max(4, Math.min(20, cW / n - 3));
   sorted.forEach((o, i) => {
     const price = getPrice(o);
-    const status = (o.payment?.status ?? o.status ?? '');
+    const status = (o.balanceItems?.[0]?.payments?.[0]?.payment?.status ?? '');
     const x = px(i) - barW / 2;
     const h = (price / 100 / max) * cH;
     const y = PT + cH - h;
