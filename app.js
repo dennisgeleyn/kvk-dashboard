@@ -284,8 +284,20 @@ async function loadData() {
     const totalOrders = results.reduce((s, r) => s + r.orders.length, 0);
     setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + totalOrders + ' bestellingen geladen', 'success');
   } catch (err) {
+    console.error('loadData error:', err);
     setStatus('✗ Fout: ' + err.message, 'error');
-    renderFallback();
+    const kg = document.getElementById('kpiGrid');
+    if (kg) kg.innerHTML = `
+      <div class="kpi"><div class="kpi-label">Totale omzet</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Tickets verkocht</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Betaald</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Gem. bestelwaarde</div><div class="kpi-value" style="color:var(--muted)">—</div></div>
+    `;
+    const sl = document.getElementById('showList');
+    if (sl) sl.innerHTML = '<div class="empty-state">Kon geen data laden.</div>';
+    const ot = document.getElementById('orderTable');
+    if (ot) ot.innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen data beschikbaar</div></td></tr>';
+  }
   }
 }
 
