@@ -140,27 +140,45 @@ async function fetchWithTimeout(url, options, ms) {
 }
 
 async function fetchAllOrders() {
-  const seenIds = new Set();
-  let allOrders = [];
-  let updatedSince = 0;
-  let afterNumber = null;
+  // Stamhoofd v2 API: keyset-cursor pagination via filter + sort.
+  // The webshopId goes in the filter object (not the URL path).
+  // Cursor = last item's { updatedAt, number }; each page requests items
+  // strictly after that cursor.
+  const seenIds  = new Set();
+  const allOrders = [];
+  let cursorUpdatedAt = 0;  // epoch = fetch from the very beginning
+  let cursorNumber    = -1;
+
   while (true) {
-    const inner = new URL(`${apiBase()}/webshop/${CONFIG.webshopId}/orders`);
-    inner.searchParams.set('updatedSince', updatedSince);
-    if (afterNumber) inner.searchParams.set('afterNumber', afterNumber);
+    const filter = {
+      webshopId: CONFIG.webshopId,
+      $or: [
+        { updatedAt: { $gt:  { $: '$date', value: cursorUpdatedAt } } },
+        { $and: [
+            { updatedAt: { $eq: { $: '$date', value: cursorUpdatedAt } } },
+            { number:    { $gt: cursorNumber } }
+          ]
+        }
+      ]
+    };
+    const inner = new URL(`${apiBase()}/webshop/orders`);
+    inner.searchParams.set('filter', JSON.stringify(filter));
+    inner.searchParams.set('sort',   'updatedAt ASC,number ASC,id ASC');
+    inner.searchParams.set('limit',  '100');
     const fetchUrl = proxied(inner.toString());
     const res = await fetchWithTimeout(fetchUrl, { headers: headers() }, 15000);
     if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
     const page = await res.json();
-    const items = Array.isArray(page) ? page : (page.results || page.orders || []);
+   const items = Array.isArray(page) ? page : (page.results || page.orders || []);
     if (!items.length) break;
-    // Log first order on first page
+
+    // Log first order on first page (debug panel)
     if (allOrders.length === 0) {
       document.getElementById('debugPanel').textContent = '';
       logDebug('=== FIRST RAW ORDER ===');
       logDebug(JSON.stringify(items[0], null, 2).slice(0, 3000));
     }
-    // Deduplicate by order ID
+
     let newItems = 0;
     for (const item of items) {
       if (!seenIds.has(item.id)) {
@@ -171,13 +189,16 @@ async function fetchAllOrders() {
     }
     setStatus('⏳ ' + allOrders.length + ' bestellingen geladen...', 'loading');
     if (newItems === 0) break;
+
     const last = items[items.length - 1];
-    const nextUpdatedSince = last?.updatedAt ?? updatedSince;
-    const nextAfterNumber = last?.number;
-    if (nextAfterNumber === afterNumber) break;
-    afterNumber = nextAfterNumber;
-    updatedSince = nextUpdatedSince;
+    const nextUpdatedAt = last?.updatedAt ?? cursorUpdatedAt;
+    const nextNumber    = last?.number    ?? cursorNumber;
+    // Stop if cursor didn't advance (shouldn't happen, but guards infinite loops)
+    if (nextUpdatedAt === cursorUpdatedAt && nextNumber === cursorNumber) break;
+    cursorUpdatedAt = nextUpdatedAt;
+    cursorNumber    = nextNumber;
   }
+
   logDebug('=== TOTAL UNIQUE ORDERS FETCHED: ' + allOrders.length + ' ===');
   return allOrders;
 }
