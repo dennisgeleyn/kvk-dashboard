@@ -62,7 +62,7 @@ function setStatus(msg, type = 'loading') {
 }
 
 function fmt(cents) {
-  return '€ ' + (cents / 100).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '€ ' + (cents / 10000).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(ts) {
@@ -399,7 +399,7 @@ function renderRevenueChart(orders, getPrice, getCreatedAt) {
   if (!orders.length) { svg.innerHTML = '<text x="200" y="80" fill="var(--muted)" text-anchor="middle" font-family="DM Mono" font-size="12">Geen data</text>'; return; }
 
   const sorted = [...orders].sort((a, b) => getCreatedAt(a) - getCreatedAt(b));
-  const values = sorted.map(o => getPrice(o) / 100);
+  const values = sorted.map(o => getPrice(o) / 10000);
   const W = 400, H = 160, PL = 40, PR = 10, PT = 10, PB = 25;
   const cW = W - PL - PR, cH = H - PT - PB;
   const max = Math.max(...values, 1);
@@ -413,7 +413,7 @@ function renderRevenueChart(orders, getPrice, getCreatedAt) {
     const price = getPrice(o);
     const status = (o.balanceItems?.[0]?.payments?.[0]?.payment?.status ?? '');
     const x = px(i) - barW / 2;
-    const h = (price / 100 / max) * cH;
+    const h = (price / 10000 / max) * cH;
     const y = PT + cH - h;
     const color = status === 'Succeeded' ? '#4caf7d' : status === 'Created' ? '#c9a84c' : '#7a7669';
     bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${color}" opacity="0.85" rx="1">
