@@ -174,13 +174,20 @@ async function fetchRetry(url, options, label) {
   for (let attempt = 0; ; attempt++) {
     const res = await fetchWithTimeout(url, options, 15000);
     if (res.ok) return res;
-    const retryable = [429, 502, 503, 504].includes(res.status);
+
+    const raw = await res.text().catch(() => '');
+    let msg = raw.replace(/\s+/g, ' ').slice(0, 300);
+    try { msg = JSON.parse(raw).errors?.[0]?.message || msg; } catch (e) {}
+
+    // Stamhoofd-quota (code rate_limit): wachten loopt over uren, retry is zinloos
+    const quota     = res.status === 429 && raw.includes('"rate_limit"');
+    const retryable = [429, 502, 503, 504].includes(res.status) && !quota;
     if (!retryable || attempt >= MAX_RETRIES) {
-      const body = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
       const ra = res.headers.get('Retry-After');
-      throw new Error(`${label} ${res.status}${ra ? ' (Retry-After ' + ra + 's)' : ''}${body ? ': ' + body : ''}`);
+      throw new Error(`${label} ${res.status}${ra ? ' (Retry-After ' + ra + 's)' : ''}: ${msg}`);
     }
-    const ra = parseFloat(res.headers.get('Retry-After'));
+
+    const ra   = parseFloat(res.headers.get('Retry-After'));
     const wait = Math.min(isNaN(ra) ? 2000 * (attempt + 1) ** 2 : ra * 1000, 10000);
     setStatus(`⏳ Stamhoofd vraagt even te wachten (${res.status}), nieuwe poging...`, 'loading');
     await sleep(wait);
@@ -1259,8 +1266,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Check for existing session; if none, login overlay stays visible
   await checkSession();
 
-  // Auto-refresh every 5 minutes
-  setInterval(function() { if (getSession()) { loadData(); fetchStamhoofdStatus(); } }, 5 * 60 * 1000);
+  // Auto-refresh: alleen zichtbare tabs, elke 15 minuten (Stamhoofd-quota)
+  setInterval(function() {
+    if (getSession() && document.visibilityState === 'visible') { loadData(); fetchStamhoofdStatus(); }
+  }, 15 * 60 * 1000);
 
  // Fetch latest GitHub commit date
 try {
