@@ -444,9 +444,7 @@ if (path === '/config' && request.method === 'GET') {
    // ════════════════════════════════════════════════════════
     // /proxy — Stamhoofd API CORS proxy
     // ════════════════════════════════════════════════════════
-    if (path === '/proxy') {
-      // Only GET is ever needed by the dashboard — also closes off the
-      // open-relay risk of forwarding arbitrary POST/PUT/DELETE bodies.
+        if (path === '/proxy') {
       if (request.method !== 'GET') return fail('Method not allowed', 405);
 
       const targetParam = url.searchParams.get('url');
@@ -456,33 +454,49 @@ if (path === '/config' && request.method === 'GET') {
       try { target = new URL(targetParam); }
       catch(e) { return fail('Invalid url parameter', 400); }
 
-      // Strict hostname check — NOT a substring check. A substring check
-      // (target.includes('api.stamhoofd.app')) can be defeated with e.g.
-      // "https://attacker.com/?x=api.stamhoofd.app", which would still
-      // match the substring while actually sending the request — and the
-      // Stamhoofd API key — to attacker.com.
       const host = target.hostname;
       const isStamhoofdApi = host === 'api.stamhoofd.app' || host.endsWith('.api.stamhoofd.app');
       const isStamhoofdStatus = host === 'status.stamhoofd.app';
       if (!isStamhoofdApi && !isStamhoofdStatus) return fail('Domain not allowed', 403);
 
+      const EXPOSE = 'Retry-After, X-Cache';
       const fwd = new Headers();
+      let cacheKey = null;
       if (isStamhoofdApi) {
         if (!(await dataAccessOk(request, env))) return fail('Unauthorized', 401);
         if (!env.STAMHOOFD_API_KEY) return fail('API key not configured', 500);
         fwd.set('Authorization', 'Bearer ' + env.STAMHOOFD_API_KEY);
+
+        // Alle geautoriseerde gebruikers zien dezelfde data: antwoorden delen via KV.
+        cacheKey = 'cache:' + await sha256(target.toString());
+        const hit = await env.KVK_STORE.get(cacheKey).catch(() => null);
+        if (hit) {
+          return new Response(hit, { status: 200, headers: {
+            ...CORS_HEADERS, 'Content-Type': 'application/json',
+            'Access-Control-Expose-Headers': EXPOSE, 'X-Cache': 'HIT' } });
+        }
       }
       const ct = request.headers.get('Content-Type');
       if (ct) fwd.set('Content-Type', ct);
+
       let res;
       try {
-        res = await fetch(new Request(target.toString(), { method: 'GET', headers: fwd }));
+        res = await fetch(target.toString(), { method: 'GET', headers: fwd });
       } catch(e) { return fail('Proxy error: ' + e.message, 502); }
+
       const body = await res.text();
-      return new Response(body, {
-        status: res.status,
-        headers: { ...CORS_HEADERS, 'Content-Type': res.headers.get('Content-Type') || 'application/json' },
-      });
+      if (cacheKey && res.ok) {
+        try { await env.KVK_STORE.put(cacheKey, body, { expirationTtl: 900 }); } catch(e) {}
+      }
+      const out = {
+        ...CORS_HEADERS,
+        'Content-Type': res.headers.get('Content-Type') || 'application/json',
+        'Access-Control-Expose-Headers': EXPOSE,
+        'X-Cache': 'MISS',
+      };
+      const ra = res.headers.get('Retry-After');
+      if (ra) out['Retry-After'] = ra;
+      return new Response(body, { status: res.status, headers: out });
     }
     return fail('Not found', 404);
   },
