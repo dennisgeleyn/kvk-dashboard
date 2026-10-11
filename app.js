@@ -166,15 +166,35 @@ async function fetchWithTimeout(url, options, ms) {
   }
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Retry bij 429/502/503/504, respecteert Retry-After (als de Worker die doorgeeft).
+async function fetchRetry(url, options, label) {
+  const MAX_RETRIES = 2;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetchWithTimeout(url, options, 15000);
+    if (res.ok) return res;
+    const retryable = [429, 502, 503, 504].includes(res.status);
+    if (!retryable || attempt >= MAX_RETRIES) {
+      const body = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
+      const ra = res.headers.get('Retry-After');
+      throw new Error(`${label} ${res.status}${ra ? ' (Retry-After ' + ra + 's)' : ''}${body ? ': ' + body : ''}`);
+    }
+    const ra = parseFloat(res.headers.get('Retry-After'));
+    const wait = Math.min(isNaN(ra) ? 2000 * (attempt + 1) ** 2 : ra * 1000, 10000);
+    setStatus(`⏳ Stamhoofd vraagt even te wachten (${res.status}), nieuwe poging...`, 'loading');
+    await sleep(wait);
+  }
+}
+
+// In-memory cache per webshop. Bewust NIET in localStorage: bevat klantgegevens.
+const _orderCache = {}; // webshopId → { map: Map(id → order), cursorUpdatedAt, cursorNumber }
+
+// Eerste load: alles. Daarna: alleen orders met updatedAt na de cursor.
 async function fetchAllOrders(webshopId) {
-  // Stamhoofd v2 API: keyset-cursor pagination via filter + sort.
-  // The webshopId goes in the filter object (not the URL path).
-  // Cursor = last item's { updatedAt, number }; each page requests items
-  // strictly after that cursor.
-  const seenIds  = new Set();
-  const allOrders = [];
-  let cursorUpdatedAt = 0;  // epoch = fetch from the very beginning
-  let cursorNumber    = -1;
+  const cache = (_orderCache[webshopId] ??= { map: new Map(), cursorUpdatedAt: 0, cursorNumber: -1 });
+  let cursorUpdatedAt = cache.cursorUpdatedAt;
+  let cursorNumber    = cache.cursorNumber;
 
   while (true) {
     const filter = {
@@ -192,47 +212,37 @@ async function fetchAllOrders(webshopId) {
     inner.searchParams.set('filter', JSON.stringify(filter));
     inner.searchParams.set('sort',   'updatedAt ASC,number ASC,id ASC');
     inner.searchParams.set('limit',  '100');
-    const fetchUrl = proxied(inner.toString());
-    const res = await fetchWithTimeout(fetchUrl, { headers: headers() }, 15000);
-    if (!res.ok) throw new Error(`Orders API ${res.status}: ${res.statusText}`);
+    const res  = await fetchRetry(proxied(inner.toString()), { headers: headers() }, 'Orders API');
     const page = await res.json();
-   const items = Array.isArray(page) ? page : (page.results || page.orders || []);
+    const items = Array.isArray(page) ? page : (page.results || page.orders || []);
     if (!items.length) break;
 
-    // Log first order on first page (debug panel)
-    if (allOrders.length === 0) {
+    if (cache.map.size === 0) {
       document.getElementById('debugPanel').textContent = '';
       logDebug('=== FIRST RAW ORDER ===');
       logDebug(JSON.stringify(items[0], null, 2).slice(0, 3000));
     }
 
-    let newItems = 0;
-    for (const item of items) {
-      if (!seenIds.has(item.id)) {
-        seenIds.add(item.id);
-        allOrders.push(item);
-        newItems++;
-      }
-    }
-    setStatus('⏳ ' + allOrders.length + ' bestellingen geladen...', 'loading');
-    if (newItems === 0) break;
+    for (const item of items) cache.map.set(item.id, item); // overschrijft gewijzigde orders
+    setStatus('⏳ ' + cache.map.size + ' bestellingen geladen...', 'loading');
 
     const last = items[items.length - 1];
     const nextUpdatedAt = last?.updatedAt ?? cursorUpdatedAt;
     const nextNumber    = last?.number    ?? cursorNumber;
-    // Stop if cursor didn't advance (shouldn't happen, but guards infinite loops)
     if (nextUpdatedAt === cursorUpdatedAt && nextNumber === cursorNumber) break;
     cursorUpdatedAt = nextUpdatedAt;
     cursorNumber    = nextNumber;
+    // Voortgang bewaren, ook als een latere pagina faalt
+    cache.cursorUpdatedAt = cursorUpdatedAt;
+    cache.cursorNumber    = cursorNumber;
   }
 
-  logDebug('=== TOTAL UNIQUE ORDERS FETCHED: ' + allOrders.length + ' ===');
-  return allOrders;
+  logDebug('=== TOTAL ORDERS IN CACHE: ' + cache.map.size + ' ===');
+  return [...cache.map.values()];
 }
 
 async function fetchWebshop(webshopId) {
-  const res = await fetch(proxied(`${apiBase()}/webshop/${webshopId}`), { headers: headers() });
-  if (!res.ok) throw new Error(`Webshop API ${res.status}: ${res.statusText}`);
+  const res = await fetchRetry(proxied(`${apiBase()}/webshop/${webshopId}`), { headers: headers() }, 'Webshop API');
   return res.json();
 }
 
@@ -262,18 +272,33 @@ function renderWebshopTabs() {
   }).join('');
 }
 
+let _loading = false;
+
 async function loadData() {
+  if (_loading) return;
+  _loading = true;
   setStatus('⏳ Data ophalen van Stamhoofd...', 'loading');
   try {
     const webshops = CONFIG.webshops || [];
     if (webshops.length === 0) throw new Error('Geen webshops geconfigureerd');
 
-    const results = await Promise.all(
-      webshops.map(ws => Promise.all([
-        fetchAllOrders(ws.id),
-        fetchWebshop(ws.id),
-      ]).then(([orders, webshop]) => ({ orders, webshop })))
-    );
+    const results  = [];
+    const warnings = [];
+    for (let i = 0; i < webshops.length; i++) {
+      const ws = webshops[i];
+      try {
+        const [orders, webshop] = await Promise.all([fetchAllOrders(ws.id), fetchWebshop(ws.id)]);
+        results[i] = { id: ws.id, orders, webshop };
+      } catch (err) {
+        const stale = _allWebshopData[i];
+        if (stale && stale.id === ws.id) {
+          results[i] = stale;
+          warnings.push((ws.name || 'Webshop ' + (i + 1)) + ': ' + err.message);
+        } else {
+          throw err;
+        }
+      }
+    }
 
     _allWebshopData = results;
     if (_activeTabIndex >= results.length) _activeTabIndex = 0;
@@ -282,7 +307,11 @@ async function loadData() {
     switchWebshopTab(_activeTabIndex);
 
     const totalOrders = results.reduce((s, r) => s + r.orders.length, 0);
-    setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + totalOrders + ' bestellingen geladen', 'success');
+    if (warnings.length) {
+      setStatus('⚠ Oude data getoond — ' + warnings[0], 'error');
+    } else {
+      setStatus('✓ Laatste update: ' + new Date().toLocaleTimeString('nl-BE') + ' — ' + totalOrders + ' bestellingen geladen', 'success');
+    }
   } catch (err) {
     console.error('loadData error:', err);
     setStatus('✗ Fout: ' + err.message, 'error');
@@ -297,6 +326,8 @@ async function loadData() {
     if (sl) sl.innerHTML = '<div class="empty-state">Kon geen data laden.</div>';
     const ot = document.getElementById('orderTable');
     if (ot) ot.innerHTML = '<tr><td colspan="8"><div class="empty-state">Geen data beschikbaar</div></td></tr>';
+  } finally {
+    _loading = false;
   }
 }
 
