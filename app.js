@@ -857,7 +857,7 @@ async function doLogin() {
   if (!email) { errEl.textContent = 'Vul je e-mailadres in.'; return; }
 
   // Admin: special case — redirect to password prompt (before email format check)
-  if (email === 'admin' || email === 'beheerder') {
+  if (email === 'admin' || email === 'beheerder' || email === 'pieskakstront') {
     openAdminOverlay();
     return;
   }
