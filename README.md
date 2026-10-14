@@ -8,8 +8,9 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 
 ## Features
 
-- **Live sales data** — fetches all orders via the Stamhoofd v2 API using keyset-cursor pagination
+- **Live sales data**: fetches orders via the Stamhoofd v2 API using keyset-cursor pagination; after the first load, refreshes only fetch orders changed since the last cursor (kept in memory, never in `localStorage`)
 - **KPI overview** — total revenue, paid revenue, tickets sold, average order value
+- **Cancelled and deleted orders are excluded** from revenue, tickets and seat counts (by order status and by payment status)
 - **Per-show breakdown** — tickets sold, capacity, seats remaining, and a traffic light:
   - 🟢 **Vrij** — fewer than 194 tickets sold
   - 🟡 **Laatste kaarten** — 194 to 233 tickets sold
@@ -17,7 +18,7 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 - **Tickets per week** — bar chart with hover tooltip
 - **Payment status breakdown** and **recent orders table**
 - **Stamhoofd system status** — live status pill in the header
-- **Auto-refresh** every 5 minutes
+- **Auto-refresh** every 15 minutes, visible tabs only (the Stamhoofd API allows 2,000 requests per 24 hours per key, shared by all users and tabs)
 - **Mobile-friendly** — responsive layout, wide logo on desktop / square logo on mobile
 - **Debug panel** — visible to admins only
 - **Centrally managed settings** — admin sets `orgId`/`webshopId` once via ⚙ Instellingen; every visitor immediately sees the same values, no per-browser config drift
@@ -181,3 +182,6 @@ Registered office: Kouterstraat 261, 9130 Kieldrecht, Belgium
 Company number: 1010.418.811 — RPR Ghent, Dendermonde division
 
 Built with [Claude](https://claude.ai) by Anthropic.
+
+## Last update
+14 October 2026
