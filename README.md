@@ -8,7 +8,7 @@ Live ticketing dashboard for **Koninklijke Toneelgroep Kunst Veredelt Kieldrecht
 
 ## Features
 
-- **Live sales data**: fetches orders via the Stamhoofd v2 API using keyset-cursor pagination; after the first load, refreshes only fetch orders changed since the last cursor (kept in memory, never in `localStorage`)
+- **Live sales data** — fetches orders via the Stamhoofd v2 API using keyset-cursor pagination; after the first load, refreshes only fetch orders changed since the last cursor (kept in memory, never in `localStorage`)
 - **KPI overview** — total revenue, paid revenue, tickets sold, average order value
 - **Cancelled and deleted orders are excluded** from revenue, tickets and seat counts (by order status and by payment status)
 - **Per-show breakdown** — tickets sold, capacity, seats remaining, and a traffic light:
