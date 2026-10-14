@@ -362,6 +362,7 @@ async function loadData() {
   };
 
 const uniqueOrders = orders.filter(o => {
+  if (o.status === 'Canceled' || o.status === 'Deleted') return false;  // orderstatus
   const status = getStatus(o);
   if (status === 'Deleted') return false;
   if (status === 'Canceled') return false;
@@ -393,7 +394,7 @@ const kpis = [
   `).join('');
 
   // Shows from webshop products
-  renderShows(webshop, orders);
+  renderShows(webshop, uniqueOrders);
 
   // Weekly orders chart + payment breakdown
   renderWeekChart(uniqueOrders, getCreatedAt, getItems, getStatus);
