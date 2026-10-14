@@ -3,7 +3,7 @@ const DEFAULTS = {
   orgId: 'd42b36a2-a20f-4930-b677-5d62599c90b3',
   webshops: [{ id: '07e841fb-25a0-478d-a1a4-4d09df824938', name: 'Webshop' }],
 
-  capacity: 240,
+  capacity: 239,
   proxyUrl: 'https://wandering-boat-05cb.dennisgeleyn.workers.dev',
 };
 
